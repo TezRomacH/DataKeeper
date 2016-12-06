@@ -1,6 +1,5 @@
-﻿// DataKeeper v1.05
+﻿// DataKeeper v1.1
 // created by TezRomacH
-// https://github.com/TezRomacH/DataKeeper
 
 using System;
 using System.Collections.Generic;
@@ -51,10 +50,37 @@ public sealed class Data
     }
 
     /// <summary>
+    /// Связывает выполнение всех действий actions при изменении значения данных ко ключу key
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="actions"></param>
+    public void BindChangeField(string key, IEnumerable<Action> actions)
+    {
+        if (bindedActions.TryGetValue(key, out var localActions))
+        {
+            localActions.AddRange(actions);
+            return;
+        }
+
+        bindedActions[key] = new List<Action>(actions);
+    }
+
+    /// <summary>
+    /// Удаляет действие, связанное по ключу key
+    /// </summary>
+    /// <param name="key">Ключ связки</param>
+    /// <param name="action">Действие, которое будет удалено</param>
+    public void Unbind(string key, Action action)
+    {
+        if (bindedActions.TryGetValue(key, out var actions))
+            actions.Remove(action);
+    }
+
+    /// <summary>
     /// Удаляет все связанные действия по ключу key
     /// </summary>
     /// <param name="key">Ключ связки</param>
-    public void Unbind(string key)
+    public void UnbindAll(string key)
     {
         if (bindedActions.TryGetValue(key, out var actions))
             actions?.Clear();
@@ -113,6 +139,20 @@ public sealed class Data
     /// <returns>Объект по ключу или @default</returns>
     /// <exception cref="InvalidCastException"></exception>
     public T Get<T>(string key, T @default = default(T))
+        where T : class
+    {
+        if (data.TryGetValue(key, out var value))
+        {
+            if (typeof(T) == typeof(string))
+                return value.ToString() as T;
+            return (T) value;
+        }
+
+        return @default;
+    }
+
+    public T GetValue<T>(string key, T @default = default(T))
+        where T : struct
     {
         if (data.TryGetValue(key, out var value))
             return (T) value;
