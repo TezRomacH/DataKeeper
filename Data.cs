@@ -27,7 +27,8 @@ public sealed class Data
             {
                 lock (syncRoot)
                 {
-                    instance = new Data();
+                    if (instance == null)
+                        instance = new Data();
                 }
             }
             return instance;
@@ -63,17 +64,6 @@ public sealed class Data
         }
 
         bindedActions[key] = new List<Action>(actions);
-    }
-
-    /// <summary>
-    /// Удаляет действие, связанное по ключу key
-    /// </summary>
-    /// <param name="key">Ключ связки</param>
-    /// <param name="action">Действие, которое будет удалено</param>
-    public void Unbind(string key, Action action)
-    {
-        if (bindedActions.TryGetValue(key, out var actions))
-            actions.Remove(action);
     }
 
     /// <summary>
@@ -176,6 +166,22 @@ public sealed class Data
     }
 
     /// <summary>
+    /// Получает число с плавающей точкой из данных
+    /// </summary>
+    /// <param name="key">Ключ</param>
+    /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
+    /// <returns>Объект по ключу или @default</returns>
+    /// <exception cref="InvalidCastException"></exception>
+    public float GetFloat(string key, float @default = 0f)
+    {
+        object value;
+        if (data.TryGetValue(key, out value))
+            return (float)value;
+
+        return @default;
+    }
+
+    /// <summary>
     /// Получает логическое значение из данных
     /// </summary>
     /// <param name="key">Ключ</param>
@@ -202,6 +208,66 @@ public sealed class Data
             return value.ToString();
 
         return @default;
+    }
+
+    public Type GetValueType(string key)
+    {
+        object value;
+        return data.TryGetValue(key, out value) ? value.GetType() : (Type) null;
+    }
+
+    public void Increase(string key, int valueToIncrease = 1)
+    {
+        if (Instance.GetValueType(key) == typeof(int))
+        {
+            var obj = Instance.GetInt(key);
+            Instance.Set(key, obj + valueToIncrease);
+        }
+    }
+
+    public void Increase(string key, float valueToIncrease = 1f)
+    {
+        if (Instance.GetValueType(key) == typeof(float))
+        {
+            var obj = Instance.GetFloat(key);
+            Instance.Set(key, obj + valueToIncrease);
+        }
+    }
+
+    public void Increase(string key, double valueToIncrease = 1.0)
+    {
+        if (Instance.GetValueType(key) == typeof(double))
+        {
+            var obj = Instance.Get<double>(key);
+            Instance.Set(key, obj + valueToIncrease);
+        }
+    }
+
+    public void Decrease(string key, int valueToDecrease = 1)
+    {
+        if (Instance.GetValueType(key) == typeof(int))
+        {
+            var obj = Instance.GetInt(key);
+            Instance.Set(key, obj - valueToDecrease);
+        }
+    }
+
+    public void Decrease(string key, float valueToDecrease = 1f)
+    {
+        if (Instance.GetValueType(key) == typeof(float))
+        {
+            var obj = Instance.GetFloat(key);
+            Instance.Set(key, obj - valueToDecrease);
+        }
+    }
+
+    public void Decrease(string key, double valueToDecrease = 1.0)
+    {
+        if (Instance.GetValueType(key) == typeof(double))
+        {
+            var obj = Instance.Get<double>(key);
+            Instance.Set(key, obj - valueToDecrease);
+        }
     }
 
     #endregion
