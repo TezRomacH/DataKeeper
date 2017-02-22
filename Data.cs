@@ -1,9 +1,8 @@
-﻿// DataKeeper v1.1
+﻿// DataKeeper v1.3
 // created by TezRomacH
 
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 public sealed class Data
 {
@@ -41,7 +40,8 @@ public sealed class Data
     /// </summary>
     public void BindChangeField(string key, Action action)
     {
-        if (bindedActions.TryGetValue(key, out var actions))
+        List<Action> actions = null;
+        if (bindedActions.TryGetValue(key, out actions))
         {
             actions?.Add(action);
             return;
@@ -57,7 +57,8 @@ public sealed class Data
     /// <param name="actions"></param>
     public void BindChangeField(string key, IEnumerable<Action> actions)
     {
-        if (bindedActions.TryGetValue(key, out var localActions))
+        List<Action> localActions = null;
+        if (bindedActions.TryGetValue(key, out localActions))
         {
             localActions.AddRange(actions);
             return;
@@ -70,26 +71,17 @@ public sealed class Data
     /// Удаляет все связанные действия по ключу key
     /// </summary>
     /// <param name="key">Ключ связки</param>
-    public void UnbindAll(string key)
+    public void Unbind(string key)
     {
-        if (bindedActions.TryGetValue(key, out var actions))
-            actions?.Clear();
-    }
-
-    /// <summary>
-    /// Удаляет действие action по ключу key
-    /// </summary>
-    /// <param name="key">Ключ связки</param>
-    /// <param name="action">Действие, которое нужно удалить из привязки</param>
-    public void RemoveAction(string key, Action action)
-    {
-        if (bindedActions.TryGetValue(key, out var actions))
-            actions?.Remove(action);
+        List<Action> actions = null;
+        if (bindedActions.TryGetValue(key, out actions) && actions != null)
+            bindedActions[key] = new List<Action>();
     }
 
     private void InvokeAll(string key)
     {
-        if (bindedActions.TryGetValue(key, out var actions))
+        List<Action> actions = null;
+        if (bindedActions.TryGetValue(key, out actions))
             actions?.ForEach(action => action?.Invoke());
     }
     #endregion
@@ -114,7 +106,8 @@ public sealed class Data
     /// <returns>Объект по ключу или null</returns>
     public object Get(string key)
     {
-        if (data.TryGetValue(key, out var value))
+        object value = null;
+        if (data.TryGetValue(key, out value))
             return value;
 
         return null;
@@ -129,23 +122,12 @@ public sealed class Data
     /// <returns>Объект по ключу или @default</returns>
     /// <exception cref="InvalidCastException"></exception>
     public T Get<T>(string key, T @default = default(T))
-        where T : class
     {
-        if (data.TryGetValue(key, out var value))
+        object value = null;
+        if (data.TryGetValue(key, out value))
         {
-            if (typeof(T) == typeof(string))
-                return value.ToString() as T;
             return (T) value;
         }
-
-        return @default;
-    }
-
-    public T GetValue<T>(string key, T @default = default(T))
-        where T : struct
-    {
-        if (data.TryGetValue(key, out var value))
-            return (T) value;
 
         return @default;
     }
@@ -159,7 +141,8 @@ public sealed class Data
     /// <exception cref="InvalidCastException"></exception>
     public int GetInt(string key, int @default = 0)
     {
-        if (data.TryGetValue(key, out var value))
+        object value = null;
+        if (data.TryGetValue(key, out value))
             return (int) value;
 
         return @default;
@@ -190,7 +173,8 @@ public sealed class Data
     /// <exception cref="InvalidCastException"></exception>
     public bool GetBool(string key, bool @default = false)
     {
-        if (data.TryGetValue(key, out var value))
+        object value = null;
+        if (data.TryGetValue(key, out value))
             return (bool) value;
 
         return @default;
@@ -204,7 +188,8 @@ public sealed class Data
     /// <returns>Строку, представляющий объект по ключу или @default</returns>
     public string GetString(string key, string @default = "")
     {
-        if (data.TryGetValue(key, out var value))
+        object value = null;
+        if (data.TryGetValue(key, out value))
             return value.ToString();
 
         return @default;
@@ -212,7 +197,7 @@ public sealed class Data
 
     public Type GetValueType(string key)
     {
-        object value;
+        object value = null;
         return data.TryGetValue(key, out value) ? value.GetType() : (Type) null;
     }
 
