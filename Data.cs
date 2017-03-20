@@ -10,7 +10,8 @@ namespace DataKeeper
     public enum TriggerKind
     {
         Before = 1,
-        After = 2
+        After = 2,
+        All = Before | After
     }
 
     public sealed class Data
@@ -18,10 +19,10 @@ namespace DataKeeper
         private class DataInfo
         {
             public object Value { get; set; }
-            public List<Action> TriggersBefore { get; set; }
-            public List<Action> TriggersAfter { get; set; }
+            public ICollection<Action> TriggersBefore { get; private set; }
+            public ICollection<Action> TriggersAfter { get; private set; }
 
-            public void AddTriggers(Action action, TriggerKind kind)
+            public void AddBindTriggers(Action action, TriggerKind kind)
             {
                 if (kind.TriggerHasFlag(TriggerKind.Before))
                 {
@@ -40,7 +41,7 @@ namespace DataKeeper
                 }
             }
 
-            public void RemoveTriggers(TriggerKind kind)
+            public void RemoveBindTriggers(TriggerKind kind)
             {
                 if (kind.TriggerHasFlag(TriggerKind.Before))
                     TriggersBefore = null;
@@ -97,13 +98,13 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.AddTriggers(action, triggerKind);
+                info.AddBindTriggers(action, triggerKind);
                 return;
             }
 
             info = new DataInfo { Value = null };
 
-            info.AddTriggers(action, triggerKind);
+            info.AddBindTriggers(action, triggerKind);
             data[key] = info;
         }
 
@@ -113,7 +114,7 @@ namespace DataKeeper
         /// <param name="key">Ключ связки</param>
         public void Unbind(string key)
         {
-            Unbind(key, TriggerKind.Before | TriggerKind.After);
+            Unbind(key, TriggerKind.All);
         }
 
         /// <summary>
@@ -125,8 +126,17 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.RemoveTriggers(triggerKind);
+                info.RemoveBindTriggers(triggerKind);
             }
+        }
+
+        /// <summary>
+        /// Удаляет данные по ключу key
+        /// </summary>
+        /// <param name="key"></param>
+        public void Remove(string key)
+        {
+            data.Remove(key);
         }
 
         #endregion
@@ -153,18 +163,54 @@ namespace DataKeeper
             data[key] = info;
         }
 
+        #region getters
+
         /// <summary>
         /// Получает объект из данных
         /// </summary>
         /// <param name="key">Ключ</param>
-        /// <returns>Объект по ключу или null</returns>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="KeyNotFoundException"></exception>
         public object Get(string key)
         {
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
                 return info.Value;
 
-            return null;
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
+        /// <summary>
+        /// Получает объект из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
+        /// <returns>Объект по ключу или @default</returns>
+        public object Get(string key, object @default)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+                return info.Value;
+
+            return @default;
+        }
+
+        /// <summary>
+        /// Получает объект из данных типа <c>T</c>
+        /// </summary>
+        /// <typeparam name="T">Тип возвращаемого значения</typeparam>
+        /// <param name="key">Ключ</param>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="InvalidCastException"></exception>
+        public T Get<T>(string key)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info) && info.Value != null)
+            {
+                return (T)info.Value;
+            }
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
         }
 
         /// <summary>
@@ -175,7 +221,7 @@ namespace DataKeeper
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
         /// <exception cref="InvalidCastException"></exception>
-        public T Get<T>(string key, T @default = default(T))
+        public T Get<T>(string key, T @default)
         {
             DataInfo info = null;
             if (data.TryGetValue(key, out info) && info.Value != null)
@@ -190,10 +236,26 @@ namespace DataKeeper
         /// Получает целое число из данных
         /// </summary>
         /// <param name="key">Ключ</param>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="InvalidCastException"></exception>
+        public int GetInt(string key)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info) && info.Value != null)
+                return (int)info.Value;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
+        /// <summary>
+        /// Получает целое число из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
         /// <exception cref="InvalidCastException"></exception>
-        public int GetInt(string key, int @default = 0)
+        public int GetInt(string key, int @default)
         {
             DataInfo info = null;
             if (data.TryGetValue(key, out info) && info.Value != null)
@@ -206,10 +268,26 @@ namespace DataKeeper
         /// Получает число с плавающей точкой из данных
         /// </summary>
         /// <param name="key">Ключ</param>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="InvalidCastException"></exception>
+        public float GetFloat(string key)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info) && info.Value != null)
+                return (float)info.Value;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
+        /// <summary>
+        /// Получает число с плавающей точкой из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
         /// <exception cref="InvalidCastException"></exception>
-        public float GetFloat(string key, float @default = 0f)
+        public float GetFloat(string key, float @default)
         {
             DataInfo info = null;
             if (data.TryGetValue(key, out info) && info.Value != null)
@@ -223,9 +301,26 @@ namespace DataKeeper
         /// </summary>
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="InvalidCastException"></exception>
+        /// <exception cref="KeyNotFoundException"></exception>
+        public bool GetBool(string key)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info) && info.Value != null)
+                return (bool)info.Value;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
+        /// <summary>
+        /// Получает логическое значение из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
+        /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
         /// <exception cref="InvalidCastException"></exception>
-        public bool GetBool(string key, bool @default = false)
+        public bool GetBool(string key, bool @default)
         {
             DataInfo info = null;
             if (data.TryGetValue(key, out info) && info.Value != null)
@@ -235,7 +330,8 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Возвращает строку из данных
+        /// Возвращает строку из данных.
+        /// Безопасен. Не выбрасывает исключений
         /// </summary>
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
@@ -249,65 +345,82 @@ namespace DataKeeper
             return @default;
         }
 
+        /// <summary>
+        /// Возвращает <see cref="Type"></see> объекта из данных по ключу.
+        /// Безопасен. Не выбрасывает исключений
+        /// </summary>
+        /// <param name="key">Ключ</param>
         public Type GetValueType(string key)
         {
             DataInfo info = null;
             return data.TryGetValue(key, out info) && info.Value != null ? info.Value.GetType() : (Type)null;
         }
 
+        #endregion
+
+        #region increase & decrease
+
         public void Increase(string key, int valueToIncrease = 1)
         {
-            if (GetValueType(key) == typeof(int))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(int))
             {
-                var obj = GetInt(key);
+                var obj = GetInt(key, default(int));
                 Set(key, obj + valueToIncrease);
             }
         }
 
         public void Increase(string key, float valueToIncrease = 1f)
         {
-            if (GetValueType(key) == typeof(float))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(float))
             {
-                var obj = GetFloat(key);
+                var obj = GetFloat(key, default(float));
                 Set(key, obj + valueToIncrease);
             }
         }
 
         public void Increase(string key, double valueToIncrease = 1.0)
         {
-            if (GetValueType(key) == typeof(double))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(double))
             {
-                var obj = Get<double>(key);
+                var obj = Get<double>(key, default(double));
                 Set(key, obj + valueToIncrease);
             }
         }
 
         public void Decrease(string key, int valueToDecrease = 1)
         {
-            if (GetValueType(key) == typeof(int))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(int))
             {
-                var obj = GetInt(key);
+                var obj = GetInt(key, default(int));
                 Set(key, obj - valueToDecrease);
             }
         }
 
         public void Decrease(string key, float valueToDecrease = 1f)
         {
-            if (GetValueType(key) == typeof(float))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(float))
             {
-                var obj = GetFloat(key);
+                var obj = GetFloat(key, default(float));
                 Set(key, obj - valueToDecrease);
             }
         }
 
         public void Decrease(string key, double valueToDecrease = 1.0)
         {
-            if (GetValueType(key) == typeof(double))
+            var type = GetValueType(key);
+            if (type == null || type == typeof(double))
             {
-                var obj = Get<double>(key);
+                var obj = Get<double>(key, default(double));
                 Set(key, obj - valueToDecrease);
             }
         }
+
+        #endregion
 
         #endregion
     }
