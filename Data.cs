@@ -309,7 +309,7 @@ namespace DataKeeper
         /// Безопасен. Не выбрасывает исключений
         /// </summary>
         /// <param name="key">Ключ</param>
-        public Type GetValueType(string key)
+        public Type GetType(string key)
         {
             DataInfo info = null;
             if (key != null && data.TryGetValue(key, out info) && info.Value != null)
@@ -324,7 +324,7 @@ namespace DataKeeper
 
         public void Increase(string key, int valueToIncrease = 1)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(int))
             {
                 var obj = GetInt(key, default(int));
@@ -334,7 +334,7 @@ namespace DataKeeper
 
         public void Increase(string key, float valueToIncrease = 1f)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(float))
             {
                 var obj = Get<float>(key, default(float));
@@ -344,7 +344,7 @@ namespace DataKeeper
 
         public void Increase(string key, double valueToIncrease = 1.0)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(double))
             {
                 var obj = GetDouble(key, default(double));
@@ -354,7 +354,7 @@ namespace DataKeeper
 
         public void Decrease(string key, int valueToDecrease = 1)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(int))
             {
                 var obj = GetInt(key, default(int));
@@ -364,7 +364,7 @@ namespace DataKeeper
 
         public void Decrease(string key, float valueToDecrease = 1f)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(float))
             {
                 var obj = Get<float>(key, default(float));
@@ -374,7 +374,7 @@ namespace DataKeeper
 
         public void Decrease(string key, double valueToDecrease = 1.0)
         {
-            var type = GetValueType(key);
+            var type = GetType(key);
             if (type == null || type == typeof(double))
             {
                 var obj = GetDouble(key, default(double));
