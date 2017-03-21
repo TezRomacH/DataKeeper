@@ -4,56 +4,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace DataKeeper
 {
-    [Flags]
-    public enum TriggerKind
-    {
-        Before = 1,
-        After = 2,
-        All = Before | After
-    }
-
     public sealed class Data
     {
-        private class DataInfo
-        {
-            public object Value { get; set; }
-            public ICollection<Action> TriggersBefore { get; private set; }
-            public ICollection<Action> TriggersAfter { get; private set; }
-
-            public void AddBindTriggers(Action action, TriggerKind kind)
-            {
-                if (kind.TriggerHasFlag(TriggerKind.Before))
-                {
-                    if (TriggersBefore == null)
-                        TriggersBefore = new List<Action>();
-
-                    TriggersBefore.Add(action);
-                }
-
-                if (kind.TriggerHasFlag(TriggerKind.After))
-                {
-                    if (TriggersAfter == null)
-                        TriggersAfter = new List<Action>();
-
-                    TriggersAfter.Add(action);
-                }
-            }
-
-            public void RemoveBindTriggers(TriggerKind kind)
-            {
-                if (kind.TriggerHasFlag(TriggerKind.Before))
-                    TriggersBefore = null;
-
-                if (kind.TriggerHasFlag(TriggerKind.After))
-                    TriggersAfter = null;
-            }
-        }
-
-        private Dictionary<string, DataInfo> data;
+        private readonly Dictionary<string, DataInfo> data;
 
         private static volatile Data instance;
 
@@ -83,19 +39,10 @@ namespace DataKeeper
         #region binding methods
 
         /// <summary>
-        /// Связывает выполнение действия action после изменения значения данных ко ключу key
-        /// в зависимости от значения triggerKind
-        /// </summary>
-        public void BindChangeField(string key, Action action)
-        {
-            BindChangeField(key, action, TriggerKind.After);
-        }
-
-        /// <summary>
         /// Связывает выполнение действия action до или после изменения значения данных ко ключу key
-        /// в зависимости от значения triggerKind
+        /// в зависимости от значения triggerType
         /// </summary>
-        public void BindChangeField(string key, Action action, TriggerKind triggerKind)
+        public void BindChangeField(string key, Action action, TriggerType triggerType = TriggerType.After)
         {
             if (key == null)
                 return;
@@ -103,13 +50,35 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.AddBindTriggers(action, triggerKind);
+                info.AddBindTriggers(action, BindType.OnChange, triggerType);
                 return;
             }
 
             info = new DataInfo { Value = null };
 
-            info.AddBindTriggers(action, triggerKind);
+            info.AddBindTriggers(action, BindType.OnChange, triggerType);
+            data[key] = info;
+        }
+
+        /// <summary>
+        /// Связывает выполнение действия action до или после удаления значения данных ко ключу key
+        /// в зависимости от значения triggerType
+        /// </summary>
+        public void BindRemoveField(string key, Action action, TriggerType triggerType = TriggerType.Before)
+        {
+            if (key == null)
+                return;
+
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+            {
+                info.AddBindTriggers(action, BindType.OnRemove, triggerType);
+                return;
+            }
+
+            info = new DataInfo { Value = null };
+
+            info.AddBindTriggers(action, BindType.OnRemove, triggerType);
             data[key] = info;
         }
 
@@ -119,14 +88,22 @@ namespace DataKeeper
         /// <param name="key">Ключ связки</param>
         public void Unbind(string key)
         {
-            Unbind(key, TriggerKind.All);
+            Unbind(key, BindType.OnAll, TriggerType.Both);
+        }
+        /// <summary>
+        /// Удаляет все связанные действия по ключу key
+        /// </summary>
+        /// <param name="key">Ключ связки</param>
+        public void Unbind(string key, BindType bindType)
+        {
+            Unbind(key, bindType, TriggerType.Both);
         }
 
         /// <summary>
         /// Удаляет все связанные действия по ключу key
         /// </summary>
         /// <param name="key">Ключ связки</param>
-        public void Unbind(string key, TriggerKind triggerKind)
+        public void Unbind(string key, BindType bindType, TriggerType triggerType)
         {
             if (key == null)
                 return;
@@ -134,7 +111,7 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.RemoveBindTriggers(triggerKind);
+                info.RemoveBindTriggers(bindType, triggerType);
             }
         }
 
@@ -153,9 +130,9 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.TriggersBefore?.InvokeAll();
+                info.TriggersBeforeChange?.InvokeAll();
                 info.Value = value;
-                info.TriggersAfter?.InvokeAll();
+                info.TriggersAfterChange?.InvokeAll();
                 return;
             }
 
@@ -301,6 +278,39 @@ namespace DataKeeper
         }
 
         /// <summary>
+        /// Получает число с плавающей точкой из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
+        /// <returns>Объект по ключу или исключение</returns>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="InvalidCastException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public double GetDouble(string key)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info) && info.Value != null)
+                return (double)info.Value;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
+        /// <summary>
+        /// Получает число с плавающей точкой из данных
+        /// </summary>
+        /// <param name="key">Ключ</param>
+        /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
+        /// <returns>Объект по ключу или @default</returns>
+        /// <exception cref="InvalidCastException"></exception>
+        public double GetDouble(string key, double @default)
+        {
+            DataInfo info = null;
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+                return (double)info.Value;
+
+            return @default;
+        }
+
+        /// <summary>
         /// Получает логическое значение из данных
         /// </summary>
         /// <param name="key">Ключ</param>
@@ -392,7 +402,7 @@ namespace DataKeeper
             var type = GetValueType(key);
             if (type == null || type == typeof(double))
             {
-                var obj = Get<double>(key, default(double));
+                var obj = GetDouble(key, default(double));
                 Set(key, obj + valueToIncrease);
             }
         }
@@ -422,16 +432,12 @@ namespace DataKeeper
             var type = GetValueType(key);
             if (type == null || type == typeof(double))
             {
-                var obj = Get<double>(key, default(double));
+                var obj = GetDouble(key, default(double));
                 Set(key, obj - valueToDecrease);
             }
         }
 
         #endregion
-
-        #endregion
-
-        #region collection methods
 
         /// <summary>
         /// Возвращает количество данных в модели
@@ -463,6 +469,7 @@ namespace DataKeeper
         /// Позволяет получить или записать даныне в модель
         /// </summary>
         /// <param name="key"></param>
+        /// <exception cref="KeyNotFoundException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
         public object this[string key]
         {
@@ -476,22 +483,121 @@ namespace DataKeeper
         /// <param name="key"></param>
         public void Remove(string key)
         {
-            if (key == null)
-                return;
+            DataInfo info = null;
+            if (ContainsKey(key) && data.TryGetValue(key, out info))
+            {
+                info.TriggersBeforeRemove?.InvokeAll();
+                data.Remove(key);
+                info.TriggersAfterRemove?.InvokeAll();
+            }
 
-            data.Remove(key);
         }
 
         #endregion
 
+        private class DataInfo
+        {
+            public object Value { get; set; }
+            public ICollection<Action> TriggersBeforeChange { get; private set; }
+            public ICollection<Action> TriggersAfterChange { get; private set; }
+
+            public ICollection<Action> TriggersBeforeRemove { get; private set; }
+            public ICollection<Action> TriggersAfterRemove { get; private set; }
+
+            public void AddBindTriggers(Action action, BindType bindType, TriggerType type)
+            {
+                if (bindType.BindTypeHasFlag(BindType.OnChange))
+                {
+                    if (type.TriggerHasFlag(TriggerType.Before))
+                    {
+                        if (TriggersBeforeChange == null)
+                            TriggersBeforeChange = new List<Action>();
+
+                        TriggersBeforeChange.Add(action);
+                    }
+
+                    if (type.TriggerHasFlag(TriggerType.After))
+                    {
+                        if (TriggersAfterChange == null)
+                            TriggersAfterChange = new List<Action>();
+
+                        TriggersAfterChange.Add(action);
+                    }
+                }
+
+                if (bindType.BindTypeHasFlag(BindType.OnRemove))
+                {
+                    if (type.TriggerHasFlag(TriggerType.Before))
+                    {
+                        if (TriggersBeforeRemove == null)
+                            TriggersBeforeRemove = new List<Action>();
+
+                        TriggersBeforeRemove.Add(action);
+                    }
+
+                    if (type.TriggerHasFlag(TriggerType.After))
+                    {
+                        if (TriggersAfterRemove == null)
+                            TriggersAfterRemove = new List<Action>();
+
+                        TriggersAfterRemove.Add(action);
+                    }
+                }
+            }
+
+            public void RemoveBindTriggers(BindType bindType, TriggerType type)
+            {
+                if (bindType.BindTypeHasFlag(BindType.OnChange))
+                {
+                    if (type.TriggerHasFlag(TriggerType.Before))
+                        TriggersBeforeChange = null;
+
+                    if (type.TriggerHasFlag(TriggerType.After))
+                        TriggersAfterChange = null;
+                }
+
+                if (bindType.BindTypeHasFlag(BindType.OnRemove))
+                {
+                    if (type.TriggerHasFlag(TriggerType.Before))
+                        TriggersBeforeRemove = null;
+
+                    if (type.TriggerHasFlag(TriggerType.After))
+                        TriggersAfterRemove = null;
+                }
+            }
+        }
     }
+
+    #region enums
+
+    [Flags]
+    public enum TriggerType
+    {
+        Before = 1,
+        After = 2,
+        Both = Before | After
+    }
+
+    [Flags]
+    public enum BindType
+    {
+        OnChange = 1,
+        OnRemove = 2,
+        OnAll = OnChange | OnRemove
+    }
+
+    #endregion
 
     internal static class Extentions
     {
-        public static bool TriggerHasFlag(this TriggerKind triggerKind, TriggerKind flag)
+        public static bool TriggerHasFlag(this TriggerType triggerType, TriggerType flag)
         {
             // Faster than native Enum.HasFlag
-            return (triggerKind & flag) == flag;
+            return (triggerType & flag) == flag;
+        }
+        public static bool BindTypeHasFlag(this BindType bindType, BindType flag)
+        {
+            return (bindType & flag) == flag;
         }
 
         public static void InvokeAll(this IEnumerable<Action> actions)
