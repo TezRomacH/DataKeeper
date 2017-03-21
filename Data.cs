@@ -151,20 +151,6 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Получает объект из данных
-        /// </summary>
-        /// <param name="key">Ключ</param>
-        /// <returns>Объект по ключу или @default</returns>
-        public object Get(string key, object @default)
-        {
-            DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info))
-                return info.Value;
-
-            return @default;
-        }
-
-        /// <summary>
         /// Получает объект из данных типа <see cref="T"/>
         /// </summary>
         /// <typeparam name="T">Тип возвращаемого значения</typeparam>
@@ -418,10 +404,7 @@ namespace DataKeeper
         /// <returns></returns>
         public bool ContainsKey(string key)
         {
-            if (key == null)
-                return false;
-
-            return data.ContainsKey(key);
+            return key != null && data.ContainsKey(key);
         }
 
         /// <summary>
@@ -437,6 +420,15 @@ namespace DataKeeper
         }
 
         /// <summary>
+        /// Позволяет связать ключ key с некоторым действием <see cref="Action"/>.
+        /// Смотрите также <seealso cref="BindChangeField"/> и <seealso cref="BindRemoveField"/>
+        /// </summary>
+        public Action this[string key, BindType bindType, TriggerType triggerType]
+        {
+            set { BindField(key, value, bindType, triggerType); }
+        }
+
+        /// <summary>
         /// Удаляет данные по ключу key
         /// </summary>
         /// <param name="key"></param>
@@ -449,7 +441,6 @@ namespace DataKeeper
                 data.Remove(key);
                 info.TriggersAfterRemove?.InvokeAll();
             }
-
         }
 
         #endregion
@@ -525,6 +516,7 @@ namespace DataKeeper
                 }
             }
         }
+
     }
 
     #region enums
@@ -570,4 +562,5 @@ namespace DataKeeper
             }
         }
     }
+
 }
