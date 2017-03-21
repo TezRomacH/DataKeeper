@@ -1,8 +1,10 @@
-﻿// DataKeeper v1.4
+﻿// DataKeeper v1.5
 // created by TezRomacH
+// github.com/TezRomacH/DataKeeper
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace DataKeeper
 {
@@ -95,6 +97,9 @@ namespace DataKeeper
         /// </summary>
         public void BindChangeField(string key, Action action, TriggerKind triggerKind)
         {
+            if (key == null)
+                return;
+
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
@@ -123,20 +128,14 @@ namespace DataKeeper
         /// <param name="key">Ключ связки</param>
         public void Unbind(string key, TriggerKind triggerKind)
         {
+            if (key == null)
+                return;
+
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
                 info.RemoveBindTriggers(triggerKind);
             }
-        }
-
-        /// <summary>
-        /// Удаляет данные по ключу key
-        /// </summary>
-        /// <param name="key"></param>
-        public void Remove(string key)
-        {
-            data.Remove(key);
         }
 
         #endregion
@@ -148,6 +147,7 @@ namespace DataKeeper
         /// </summary>
         /// <param name="key">Ключ</param>
         /// <param name="value">Объект, которые записывается или изменяется</param>
+        /// <exception cref="ArgumentNullException"></exception>
         public void Set(string key, object value)
         {
             DataInfo info = null;
@@ -171,6 +171,7 @@ namespace DataKeeper
         /// <param name="key">Ключ</param>
         /// <returns>Объект по ключу или исключение</returns>
         /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public object Get(string key)
         {
             DataInfo info = null;
@@ -188,7 +189,7 @@ namespace DataKeeper
         public object Get(string key, object @default)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info))
+            if (key != null && data.TryGetValue(key, out info))
                 return info.Value;
 
             return @default;
@@ -202,6 +203,7 @@ namespace DataKeeper
         /// <returns>Объект по ключу или исключение</returns>
         /// <exception cref="KeyNotFoundException"></exception>
         /// <exception cref="InvalidCastException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public T Get<T>(string key)
         {
             DataInfo info = null;
@@ -224,7 +226,7 @@ namespace DataKeeper
         public T Get<T>(string key, T @default)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
             {
                 return (T)info.Value;
             }
@@ -239,6 +241,7 @@ namespace DataKeeper
         /// <returns>Объект по ключу или исключение</returns>
         /// <exception cref="KeyNotFoundException"></exception>
         /// <exception cref="InvalidCastException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public int GetInt(string key)
         {
             DataInfo info = null;
@@ -258,7 +261,7 @@ namespace DataKeeper
         public int GetInt(string key, int @default)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
                 return (int)info.Value;
 
             return @default;
@@ -271,6 +274,7 @@ namespace DataKeeper
         /// <returns>Объект по ключу или исключение</returns>
         /// <exception cref="KeyNotFoundException"></exception>
         /// <exception cref="InvalidCastException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public float GetFloat(string key)
         {
             DataInfo info = null;
@@ -290,7 +294,7 @@ namespace DataKeeper
         public float GetFloat(string key, float @default)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
                 return (float)info.Value;
 
             return @default;
@@ -300,10 +304,10 @@ namespace DataKeeper
         /// Получает логическое значение из данных
         /// </summary>
         /// <param name="key">Ключ</param>
-        /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или исключение</returns>
         /// <exception cref="InvalidCastException"></exception>
         /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public bool GetBool(string key)
         {
             DataInfo info = null;
@@ -323,7 +327,7 @@ namespace DataKeeper
         public bool GetBool(string key, bool @default)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
                 return (bool)info.Value;
 
             return @default;
@@ -339,7 +343,7 @@ namespace DataKeeper
         public string GetString(string key, string @default = "")
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
                 return info.Value.ToString();
 
             return @default;
@@ -353,7 +357,10 @@ namespace DataKeeper
         public Type GetValueType(string key)
         {
             DataInfo info = null;
-            return data.TryGetValue(key, out info) && info.Value != null ? info.Value.GetType() : (Type)null;
+            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+                return info.Value.GetType();
+
+            return (Type)null;
         }
 
         #endregion
@@ -423,6 +430,60 @@ namespace DataKeeper
         #endregion
 
         #endregion
+
+        #region collection methods
+
+        /// <summary>
+        /// Возвращает количество данных в модели
+        /// </summary>
+        public int Count => data.Count;
+
+        /// <summary>
+        /// Уничтожает все данные в модели
+        /// </summary>
+        public void Clear()
+        {
+            data.Clear();
+        }
+
+        /// <summary>
+        /// Проверяет, содержится ли в модели данные по ключу key
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool ContainsKey(string key)
+        {
+            if (key == null)
+                return false;
+
+            return data.ContainsKey(key);
+        }
+
+        /// <summary>
+        /// Позволяет получить или записать даныне в модель
+        /// </summary>
+        /// <param name="key"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public object this[string key]
+        {
+            get { return this.Get(key); }
+            set { this.Set(key, value); }
+        }
+
+        /// <summary>
+        /// Удаляет данные по ключу key
+        /// </summary>
+        /// <param name="key"></param>
+        public void Remove(string key)
+        {
+            if (key == null)
+                return;
+
+            data.Remove(key);
+        }
+
+        #endregion
+
     }
 
     internal static class Extentions
