@@ -44,20 +44,7 @@ namespace DataKeeper
         /// </summary>
         public void BindChangeField(string key, Action action, TriggerType triggerType = TriggerType.After)
         {
-            if (key == null)
-                return;
-
-            DataInfo info = null;
-            if (data.TryGetValue(key, out info))
-            {
-                info.AddBindTriggers(action, BindType.OnChange, triggerType);
-                return;
-            }
-
-            info = new DataInfo { Value = null };
-
-            info.AddBindTriggers(action, BindType.OnChange, triggerType);
-            data[key] = info;
+            BindField(key, action, BindType.OnChange, triggerType);
         }
 
         /// <summary>
@@ -66,19 +53,24 @@ namespace DataKeeper
         /// </summary>
         public void BindRemoveField(string key, Action action, TriggerType triggerType = TriggerType.Before)
         {
+            BindField(key, action, BindType.OnRemove, triggerType);
+        }
+
+        private void BindField(string key, Action action, BindType bindType, TriggerType triggerType)
+        {
             if (key == null)
                 return;
 
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.AddBindTriggers(action, BindType.OnRemove, triggerType);
+                info.AddBindTriggers(action, bindType, triggerType);
                 return;
             }
 
             info = new DataInfo { Value = null };
 
-            info.AddBindTriggers(action, BindType.OnRemove, triggerType);
+            info.AddBindTriggers(action, bindType, triggerType);
             data[key] = info;
         }
 
@@ -173,7 +165,7 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Получает объект из данных типа <c>T</c>
+        /// Получает объект из данных типа <see cref="T"/>
         /// </summary>
         /// <typeparam name="T">Тип возвращаемого значения</typeparam>
         /// <param name="key">Ключ</param>
@@ -193,7 +185,7 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Получает объект из данных типа <c>T</c>
+        /// Получает объект из данных типа <see cref="T"/>
         /// </summary>
         /// <typeparam name="T">Тип возвращаемого значения</typeparam>
         /// <param name="key">Ключ</param>
@@ -240,39 +232,6 @@ namespace DataKeeper
             DataInfo info = null;
             if (key != null && data.TryGetValue(key, out info) && info.Value != null)
                 return (int)info.Value;
-
-            return @default;
-        }
-
-        /// <summary>
-        /// Получает число с плавающей точкой из данных
-        /// </summary>
-        /// <param name="key">Ключ</param>
-        /// <returns>Объект по ключу или исключение</returns>
-        /// <exception cref="KeyNotFoundException"></exception>
-        /// <exception cref="InvalidCastException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public float GetFloat(string key)
-        {
-            DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
-                return (float)info.Value;
-
-            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
-        }
-
-        /// <summary>
-        /// Получает число с плавающей точкой из данных
-        /// </summary>
-        /// <param name="key">Ключ</param>
-        /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
-        /// <returns>Объект по ключу или @default</returns>
-        /// <exception cref="InvalidCastException"></exception>
-        public float GetFloat(string key, float @default)
-        {
-            DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
-                return (float)info.Value;
 
             return @default;
         }
@@ -392,7 +351,7 @@ namespace DataKeeper
             var type = GetValueType(key);
             if (type == null || type == typeof(float))
             {
-                var obj = GetFloat(key, default(float));
+                var obj = Get<float>(key, default(float));
                 Set(key, obj + valueToIncrease);
             }
         }
@@ -422,7 +381,7 @@ namespace DataKeeper
             var type = GetValueType(key);
             if (type == null || type == typeof(float))
             {
-                var obj = GetFloat(key, default(float));
+                var obj = Get<float>(key, default(float));
                 Set(key, obj - valueToDecrease);
             }
         }
@@ -466,7 +425,7 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Позволяет получить или записать даныне в модель
+        /// Позволяет получить или записать данные в модель
         /// </summary>
         /// <param name="key"></param>
         /// <exception cref="KeyNotFoundException"></exception>
@@ -484,7 +443,7 @@ namespace DataKeeper
         public void Remove(string key)
         {
             DataInfo info = null;
-            if (ContainsKey(key) && data.TryGetValue(key, out info))
+            if (key != null && data.TryGetValue(key, out info))
             {
                 info.TriggersBeforeRemove?.InvokeAll();
                 data.Remove(key);
