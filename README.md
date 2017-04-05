@@ -14,6 +14,6 @@ Data.Instance.Set("some_key_to_data", value: 42); // will set new value and prin
 // Set takes an object so you can put any value
 ```
 
-More examples in [wiki].
+More examples and API in [wiki].
 
 [wiki]: <https://github.com/TezRomacH/DataKeeper/wiki>
