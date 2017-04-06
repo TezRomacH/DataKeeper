@@ -162,7 +162,7 @@ namespace DataKeeper
         public T Get<T>(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (data.TryGetValue(key, out info))
             {
                 return (T)info.Value;
             }
