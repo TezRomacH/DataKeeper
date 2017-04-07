@@ -1,4 +1,4 @@
-﻿// DataKeeper v1.6
+﻿// DataKeeper v1.7
 // created by TezRomacH
 // https://github.com/TezRomacH/DataKeeper
 
@@ -22,6 +22,19 @@ namespace DataKeeper
                     }
                 }
                 return instance;
+            }
+        }
+
+        /// <summary>
+        /// Перечислимая коллекция ключей в модели
+        /// </summary>
+        public IReadOnlyCollection<string> Keys
+        {
+            get
+            {
+                var set = new SortedSet<string>(data.Keys);
+                set.ExceptWith(removedKeys);
+                return (IReadOnlyCollection<string>) set;
             }
         }
 
@@ -121,7 +134,7 @@ namespace DataKeeper
         /// <param name="value">Объект, которые записывается или изменяется</param>
         public void Set(string key, object value)
         {
-            if(key == null) return;
+            if (key == null) return;
 
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
@@ -138,6 +151,28 @@ namespace DataKeeper
         }
 
         /// <summary>
+        /// Удаляет данные по ключу key
+        /// </summary>
+        /// <param name="key"></param>
+        public void Remove(string key)
+        {
+            DataInfo info = null;
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info))
+            {
+                if (!info.HasAnyTrigger())
+                {
+                    data.Remove(key);
+                    return;
+                }
+
+                info.TriggersBeforeRemove?.InvokeAll();
+                info.Value = null;
+                removedKeys.Add(key);
+                info.TriggersAfterRemove?.InvokeAll();
+            }
+        }
+
+        /// <summary>
         /// Позволяет получить или записать данные в модель
         /// </summary>
         /// <param name="key"></param>
@@ -149,10 +184,10 @@ namespace DataKeeper
             set { this.Set(key, value); }
         }
         /// <summary>
-         /// Позволяет получить данные из модели.
-         /// В случае, если данных нет, то вернется второй параметр
-         /// </summary>
-         /// <param name="key"></param>
+        /// Позволяет получить данные из модели.
+        /// В случае, если данных нет, то вернется второй параметр
+        /// </summary>
+        /// <param name="key"></param>
         public object this[string key, object @default]
         {
             get { return this.Get<object>(key, @default); }
@@ -480,28 +515,6 @@ namespace DataKeeper
         public bool ContainsKey(string key)
         {
             return key != null && !IsKeyRemoved(key) && data.ContainsKey(key);
-        }
-
-        /// <summary>
-        /// Удаляет данные по ключу key
-        /// </summary>
-        /// <param name="key"></param>
-        public void Remove(string key)
-        {
-            DataInfo info = null;
-            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info))
-            {
-                if (!info.HasAnyTrigger())
-                {
-                    data.Remove(key);
-                    return;
-                }
-
-                info.TriggersBeforeRemove?.InvokeAll();
-                info.Value = null;
-                removedKeys.Add(key);
-                info.TriggersAfterRemove?.InvokeAll();
-            }
         }
 
         #endregion
