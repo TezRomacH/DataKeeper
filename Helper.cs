@@ -30,6 +30,7 @@ namespace DataKeeper
             // Faster than native Enum.HasFlag
             return (triggerType & flag) == flag;
         }
+
         public static bool BindTypeHasFlag(this BindType bindType, BindType flag)
         {
             return (bindType & flag) == flag;

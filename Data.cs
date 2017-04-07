@@ -1,6 +1,6 @@
 ﻿// DataKeeper v1.6
 // created by TezRomacH
-// github.com/TezRomacH/DataKeeper
+// https://github.com/TezRomacH/DataKeeper
 
 using System;
 using System.Collections.Generic;
@@ -177,14 +177,21 @@ namespace DataKeeper
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
-        /// <exception cref="InvalidCastException"></exception>
         public T Get<T>(string key, T @default)
         {
             DataInfo info = null;
             var type = typeof(T);
             if (key != null && data.TryGetValue(key, out info))
             {
-                return (T)info.Value;
+                try
+                {
+                    T result = (T)info.Value;
+                    return result;
+                }
+                catch
+                {
+                    return @default;
+                }
             }
 
             return @default;
@@ -213,12 +220,21 @@ namespace DataKeeper
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
-        /// <exception cref="InvalidCastException"></exception>
         public int GetInt(string key, int @default)
         {
             DataInfo info = null;
             if (key != null && data.TryGetValue(key, out info) && info.Value != null)
-                return (int)info.Value;
+            {
+                try
+                {
+                    int result = (int)info.Value;
+                    return result;
+                }
+                catch
+                {
+                    return @default;
+                }
+            }
 
             return @default;
         }
@@ -246,12 +262,21 @@ namespace DataKeeper
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
-        /// <exception cref="InvalidCastException"></exception>
         public double GetDouble(string key, double @default)
         {
             DataInfo info = null;
             if (key != null && data.TryGetValue(key, out info) && info.Value != null)
-                return (double)info.Value;
+            {
+                try
+                {
+                    double result = (double)info.Value;
+                    return result;
+                }
+                catch
+                {
+                    return @default;
+                }
+            }
 
             return @default;
         }
@@ -279,12 +304,21 @@ namespace DataKeeper
         /// <param name="key">Ключ</param>
         /// <param name="default">Значение по умолчание. В случае, если в данных нет объекта по ключу key</param>
         /// <returns>Объект по ключу или @default</returns>
-        /// <exception cref="InvalidCastException"></exception>
         public bool GetBool(string key, bool @default)
         {
             DataInfo info = null;
             if (key != null && data.TryGetValue(key, out info) && info.Value != null)
-                return (bool)info.Value;
+            {
+                try
+                {
+                    bool result = (bool)info.Value;
+                    return result;
+                }
+                catch
+                {
+                    return @default;
+                }
+            }
 
             return @default;
         }

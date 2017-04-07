@@ -7,7 +7,7 @@ namespace DataKeeper
     {
         private class DataInfo
         {
-            public object Value { get; set; }
+            public dynamic Value { get; set; }
             public ICollection<Action> TriggersBeforeChange { get; private set; }
             public ICollection<Action> TriggersAfterChange { get; private set; }
 
