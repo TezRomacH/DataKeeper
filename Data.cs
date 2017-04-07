@@ -1,4 +1,4 @@
-﻿// DataKeeper v1.5
+﻿// DataKeeper v1.6
 // created by TezRomacH
 // github.com/TezRomacH/DataKeeper
 
@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace DataKeeper
 {
-    public sealed class Data
+    public sealed partial class Data
     {
         private readonly Dictionary<string, DataInfo> data;
 
@@ -181,7 +181,8 @@ namespace DataKeeper
         public T Get<T>(string key, T @default)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            var type = typeof(T);
+            if (key != null && data.TryGetValue(key, out info))
             {
                 return (T)info.Value;
             }
@@ -387,7 +388,10 @@ namespace DataKeeper
         /// <summary>
         /// Возвращает количество данных в модели
         /// </summary>
-        public int Count => data.Count;
+        public int Count
+        {
+            get { return data.Count; }
+        }
 
         /// <summary>
         /// Уничтожает все данные в модели
@@ -444,123 +448,5 @@ namespace DataKeeper
         }
 
         #endregion
-
-        private class DataInfo
-        {
-            public object Value { get; set; }
-            public ICollection<Action> TriggersBeforeChange { get; private set; }
-            public ICollection<Action> TriggersAfterChange { get; private set; }
-
-            public ICollection<Action> TriggersBeforeRemove { get; private set; }
-            public ICollection<Action> TriggersAfterRemove { get; private set; }
-
-            public void AddBindTriggers(Action action, BindType bindType, TriggerType type)
-            {
-                if (bindType.BindTypeHasFlag(BindType.OnChange))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                    {
-                        if (TriggersBeforeChange == null)
-                            TriggersBeforeChange = new List<Action>();
-
-                        TriggersBeforeChange.Add(action);
-                    }
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                    {
-                        if (TriggersAfterChange == null)
-                            TriggersAfterChange = new List<Action>();
-
-                        TriggersAfterChange.Add(action);
-                    }
-                }
-
-                if (bindType.BindTypeHasFlag(BindType.OnRemove))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                    {
-                        if (TriggersBeforeRemove == null)
-                            TriggersBeforeRemove = new List<Action>();
-
-                        TriggersBeforeRemove.Add(action);
-                    }
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                    {
-                        if (TriggersAfterRemove == null)
-                            TriggersAfterRemove = new List<Action>();
-
-                        TriggersAfterRemove.Add(action);
-                    }
-                }
-            }
-
-            public void RemoveBindTriggers(BindType bindType, TriggerType type)
-            {
-                if (bindType.BindTypeHasFlag(BindType.OnChange))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        TriggersBeforeChange = null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        TriggersAfterChange = null;
-                }
-
-                if (bindType.BindTypeHasFlag(BindType.OnRemove))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        TriggersBeforeRemove = null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        TriggersAfterRemove = null;
-                }
-            }
-        }
-
     }
-
-    #region enums
-
-    [Flags]
-    public enum TriggerType
-    {
-        Before = 1,
-        After = 2,
-        Both = Before | After
-    }
-
-    [Flags]
-    public enum BindType
-    {
-        OnChange = 1,
-        OnRemove = 2,
-        OnAll = OnChange | OnRemove
-    }
-
-    #endregion
-
-    internal static class Extentions
-    {
-        public static bool TriggerHasFlag(this TriggerType triggerType, TriggerType flag)
-        {
-            // Faster than native Enum.HasFlag
-            return (triggerType & flag) == flag;
-        }
-        public static bool BindTypeHasFlag(this BindType bindType, BindType flag)
-        {
-            return (bindType & flag) == flag;
-        }
-
-        public static void InvokeAll(this IEnumerable<Action> actions)
-        {
-            if (actions == null)
-                return;
-
-            foreach (var action in actions)
-            {
-                action?.Invoke();
-            }
-        }
-    }
-
 }
