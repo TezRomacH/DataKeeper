@@ -9,17 +9,6 @@ namespace DataKeeper
 {
     public sealed partial class Data
     {
-        private readonly Dictionary<string, DataInfo> data;
-
-        private static volatile Data instance;
-
-        private Data()
-        {
-            data = new Dictionary<string, DataInfo>();
-        }
-
-        private static object syncRoot = new object();
-
         public static Data Instance
         {
             get
@@ -54,6 +43,15 @@ namespace DataKeeper
         public void BindRemoveField(string key, Action action, TriggerType triggerType = TriggerType.Before)
         {
             BindField(key, action, BindType.OnRemove, triggerType);
+        }
+
+        /// <summary>
+        /// Позволяет связать ключ key с некоторым действием <see cref="Action"/>.
+        /// Смотрите также <seealso cref="BindChangeField"/> и <seealso cref="BindRemoveField"/>
+        /// </summary>
+        public Action this[string key, BindType bindType, TriggerType triggerType]
+        {
+            set { BindField(key, value, bindType, triggerType); }
         }
 
         private void BindField(string key, Action action, BindType bindType, TriggerType triggerType)
@@ -104,6 +102,11 @@ namespace DataKeeper
             if (data.TryGetValue(key, out info))
             {
                 info.RemoveBindTriggers(bindType, triggerType);
+                if (IsKeyRemoved(key) && !info.HasAnyTrigger())
+                {
+                    data.Remove(key);
+                    removedKeys.Remove(key);
+                }
             }
         }
 
@@ -116,20 +119,43 @@ namespace DataKeeper
         /// </summary>
         /// <param name="key">Ключ</param>
         /// <param name="value">Объект, которые записывается или изменяется</param>
-        /// <exception cref="ArgumentNullException"></exception>
         public void Set(string key, object value)
         {
+            if(key == null) return;
+
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
                 info.TriggersBeforeChange?.InvokeAll();
                 info.Value = value;
+                removedKeys.Remove(key);
                 info.TriggersAfterChange?.InvokeAll();
                 return;
             }
 
             info = new DataInfo { Value = value };
             data[key] = info;
+        }
+
+        /// <summary>
+        /// Позволяет получить или записать данные в модель
+        /// </summary>
+        /// <param name="key"></param>
+        /// <exception cref="KeyNotFoundException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        public object this[string key]
+        {
+            get { return this.Get(key); }
+            set { this.Set(key, value); }
+        }
+        /// <summary>
+         /// Позволяет получить данные из модели.
+         /// В случае, если данных нет, то вернется второй параметр
+         /// </summary>
+         /// <param name="key"></param>
+        public object this[string key, object @default]
+        {
+            get { return this.Get<object>(key, @default); }
         }
 
         #region getters
@@ -144,7 +170,7 @@ namespace DataKeeper
         public object Get(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info))
+            if (!IsKeyRemoved(key) && data.TryGetValue(key, out info))
                 return info.Value;
 
             throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
@@ -162,7 +188,7 @@ namespace DataKeeper
         public T Get<T>(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info))
+            if (!IsKeyRemoved(key) && data.TryGetValue(key, out info))
             {
                 return (T)info.Value;
             }
@@ -180,8 +206,7 @@ namespace DataKeeper
         public T Get<T>(string key, T @default)
         {
             DataInfo info = null;
-            var type = typeof(T);
-            if (key != null && data.TryGetValue(key, out info))
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info))
             {
                 try
                 {
@@ -208,7 +233,7 @@ namespace DataKeeper
         public int GetInt(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (!IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
                 return (int)info.Value;
 
             throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
@@ -223,7 +248,7 @@ namespace DataKeeper
         public int GetInt(string key, int @default)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
             {
                 try
                 {
@@ -250,7 +275,7 @@ namespace DataKeeper
         public double GetDouble(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (!IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
                 return (double)info.Value;
 
             throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
@@ -265,7 +290,7 @@ namespace DataKeeper
         public double GetDouble(string key, double @default)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
             {
                 try
                 {
@@ -292,7 +317,7 @@ namespace DataKeeper
         public bool GetBool(string key)
         {
             DataInfo info = null;
-            if (data.TryGetValue(key, out info) && info.Value != null)
+            if (!IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
                 return (bool)info.Value;
 
             throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
@@ -307,7 +332,7 @@ namespace DataKeeper
         public bool GetBool(string key, bool @default)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
             {
                 try
                 {
@@ -333,7 +358,7 @@ namespace DataKeeper
         public string GetString(string key, string @default = "")
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
                 return info.Value.ToString();
 
             return @default;
@@ -347,7 +372,7 @@ namespace DataKeeper
         public Type GetType(string key)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info) && info.Value != null)
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info) && info.Value != null)
                 return info.Value.GetType();
 
             return (Type)null;
@@ -424,7 +449,7 @@ namespace DataKeeper
         /// </summary>
         public int Count
         {
-            get { return data.Count; }
+            get { return data.Count - removedKeys.Count; }
         }
 
         /// <summary>
@@ -433,6 +458,18 @@ namespace DataKeeper
         public void Clear()
         {
             data.Clear();
+            removedKeys.Clear();
+        }
+
+        /// <summary>
+        /// Уничтожает все данные в модели по ключу.
+        /// Эквивалентно вызову <seealso cref="Remove(string)"/> + <seealso cref="Unbind(string)"/>
+        /// </summary>
+        public void Clear(string key)
+        {
+            if (key == null) return;
+            data.Remove(key);
+            removedKeys.Remove(key);
         }
 
         /// <summary>
@@ -442,28 +479,7 @@ namespace DataKeeper
         /// <returns></returns>
         public bool ContainsKey(string key)
         {
-            return key != null && data.ContainsKey(key);
-        }
-
-        /// <summary>
-        /// Позволяет получить или записать данные в модель
-        /// </summary>
-        /// <param name="key"></param>
-        /// <exception cref="KeyNotFoundException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public object this[string key]
-        {
-            get { return this.Get(key); }
-            set { this.Set(key, value); }
-        }
-
-        /// <summary>
-        /// Позволяет связать ключ key с некоторым действием <see cref="Action"/>.
-        /// Смотрите также <seealso cref="BindChangeField"/> и <seealso cref="BindRemoveField"/>
-        /// </summary>
-        public Action this[string key, BindType bindType, TriggerType triggerType]
-        {
-            set { BindField(key, value, bindType, triggerType); }
+            return key != null && !IsKeyRemoved(key) && data.ContainsKey(key);
         }
 
         /// <summary>
@@ -473,10 +489,17 @@ namespace DataKeeper
         public void Remove(string key)
         {
             DataInfo info = null;
-            if (key != null && data.TryGetValue(key, out info))
+            if (key != null && !IsKeyRemoved(key) && data.TryGetValue(key, out info))
             {
+                if (!info.HasAnyTrigger())
+                {
+                    data.Remove(key);
+                    return;
+                }
+
                 info.TriggersBeforeRemove?.InvokeAll();
-                data.Remove(key);
+                info.Value = null;
+                removedKeys.Add(key);
                 info.TriggersAfterRemove?.InvokeAll();
             }
         }
