@@ -4,9 +4,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace DataKeeper
 {
+    [DebuggerDisplay("Count = {Count}")]
     public sealed partial class Data
     {
         public static Data Instance
@@ -187,7 +189,6 @@ namespace DataKeeper
         /// Позволяет получить данные из модели.
         /// В случае, если данных нет, то вернется второй параметр
         /// </summary>
-        /// <param name="key"></param>
         public object this[string key, object @default]
         {
             get { return this.Get<object>(key, @default); }
