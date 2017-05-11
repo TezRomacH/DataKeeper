@@ -46,5 +46,15 @@ namespace DataKeeper
                 action?.Invoke();
             }
         }
+
+        internal static dynamic Add<T>(this object left, T right)
+        {
+            return (dynamic) left + (dynamic) right;
+        }
+
+        internal static dynamic Substract<T>(this object left, T right)
+        {
+            return (dynamic) left - (dynamic) right;
+        }
     }
 }

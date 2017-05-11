@@ -28,7 +28,7 @@ namespace DataKeeper
         }
 
         /// <summary>
-        /// Перечислимая коллекция ключей в модели
+        /// Keys collection
         /// </summary>
         public IReadOnlyCollection<string> Keys
         {
@@ -189,10 +189,7 @@ namespace DataKeeper
         /// Позволяет получить данные из модели.
         /// В случае, если данных нет, то вернется второй параметр
         /// </summary>
-        public object this[string key, object @default]
-        {
-            get { return this.Get<object>(key, @default); }
-        }
+        public object this[string key, object @default] => Get(key, @default);
 
         #region getters
 
@@ -416,77 +413,47 @@ namespace DataKeeper
 
         #endregion
 
+        public bool ValueIs<T>(string key, bool ignoreKeyNotFound = true)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+            {
+                return info.Value is T;
+            }
+
+            if (ignoreKeyNotFound)
+                return false;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
+        }
+
         #region increase & decrease
 
-        public void Increase(string key, int valueToIncrease = 1)
+        public void Increase<T>(string key, T valueToIncrease)
         {
-            var type = GetType(key);
-            if (type == null || type == typeof(int))
+            try
             {
-                var obj = GetInt(key, default(int));
-                Set(key, obj + valueToIncrease);
+                object obj = Get(key);
+                Set(key, obj.Add(valueToIncrease));
             }
+            catch { }
         }
 
-        public void Increase(string key, float valueToIncrease = 1f)
+        public void Decrease<T>(string key, T valueToDecrease)
         {
-            var type = GetType(key);
-            if (type == null || type == typeof(float))
+            try
             {
-                var obj = Get<float>(key, default(float));
-                Set(key, obj + valueToIncrease);
+                object obj = Get(key);
+                Set(key, obj.Substract(valueToDecrease));
             }
-        }
-
-        public void Increase(string key, double valueToIncrease = 1.0)
-        {
-            var type = GetType(key);
-            if (type == null || type == typeof(double))
-            {
-                var obj = GetDouble(key, default(double));
-                Set(key, obj + valueToIncrease);
-            }
-        }
-
-        public void Decrease(string key, int valueToDecrease = 1)
-        {
-            var type = GetType(key);
-            if (type == null || type == typeof(int))
-            {
-                var obj = GetInt(key, default(int));
-                Set(key, obj - valueToDecrease);
-            }
-        }
-
-        public void Decrease(string key, float valueToDecrease = 1f)
-        {
-            var type = GetType(key);
-            if (type == null || type == typeof(float))
-            {
-                var obj = Get<float>(key, default(float));
-                Set(key, obj - valueToDecrease);
-            }
-        }
-
-        public void Decrease(string key, double valueToDecrease = 1.0)
-        {
-            var type = GetType(key);
-            if (type == null || type == typeof(double))
-            {
-                var obj = GetDouble(key, default(double));
-                Set(key, obj - valueToDecrease);
-            }
+            catch { }
         }
 
         #endregion
-
         /// <summary>
         /// Возвращает количество данных в модели
         /// </summary>
-        public int Count
-        {
-            get { return data.Count - removedKeys.Count; }
-        }
+        public int Count => data.Count - removedKeys.Count;
 
         /// <summary>
         /// Уничтожает все данные в модели
