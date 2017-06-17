@@ -8,7 +8,7 @@ using System.Diagnostics;
 
 namespace DataKeeper
 {
-    [DebuggerDisplay("Count = {Count}")]
+    [DebuggerDisplay("Count = {" + nameof(Count) + "}")]
     public sealed partial class Data
     {
         public static Data Instance
@@ -36,7 +36,7 @@ namespace DataKeeper
             {
                 var set = new SortedSet<string>(data.Keys);
                 set.ExceptWith(removedKeys);
-                return (IReadOnlyCollection<string>) set;
+                return set as IReadOnlyCollection<string>;
             }
         }
 
@@ -141,15 +141,31 @@ namespace DataKeeper
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.TriggersBeforeChange?.InvokeAll();
+                OldValue = info.Value;
+                NewValue = value;
+
+                InvokeTriggers(info.TriggersBeforeChange);
                 info.Value = value;
-                removedKeys.Remove(key);
-                info.TriggersAfterChange?.InvokeAll();
+                removedKeys.Remove(key); // удаляем из удаленных ключей
+                InvokeTriggers(info.TriggersAfterChange);
                 return;
             }
 
             info = new DataInfo { Value = value };
             data[key] = info;
+        }
+
+        private void InvokeTriggers(IEnumerable<Action> actions)
+        {
+            if (actions == null)
+                return;
+
+            foreach (var action in actions)
+            {
+                IsOnTrigger = true;
+                action?.Invoke();
+                IsOnTrigger = false;
+            }
         }
 
         /// <summary>
@@ -190,6 +206,38 @@ namespace DataKeeper
         /// В случае, если данных нет, то вернется второй параметр
         /// </summary>
         public object this[string key, object @default] => Get(key, @default);
+
+        #region OldValue/NewValue
+
+        private bool IsOnTrigger { get; set; } = false;
+
+        private dynamic _oldValue;
+        public dynamic OldValue
+        {
+            get
+            {
+                if (IsOnTrigger)
+                    return _oldValue;
+
+                throw new NotOnTriggerException($"Trying to get {nameof(OldValue)} not on a trigger body!");
+            }
+            private set { _oldValue = value; }
+        }
+
+        private dynamic _newValue;
+        public dynamic NewValue
+        {
+            get
+            {
+                if (IsOnTrigger)
+                    return _newValue;
+
+                throw new NotOnTriggerException($"Trying to get {nameof(NewValue)} not on a trigger body!");
+            }
+            private set { _newValue = value; }
+        }
+
+        #endregion
 
         #region getters
 
