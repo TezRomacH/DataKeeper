@@ -144,10 +144,10 @@ namespace DataKeeper
                 OldValue = info.Value;
                 NewValue = value;
 
-                InvokeTriggers(info.TriggersBeforeChange);
+                InvokeUpdateTriggers(info.TriggersBeforeChange);
                 info.Value = value;
                 removedKeys.Remove(key); // удаляем из удаленных ключей
-                InvokeTriggers(info.TriggersAfterChange);
+                InvokeUpdateTriggers(info.TriggersAfterChange);
                 return;
             }
 
@@ -155,16 +155,33 @@ namespace DataKeeper
             data[key] = info;
         }
 
-        private void InvokeTriggers(IEnumerable<Action> actions)
+        private void InvokeRemoveTriggers(IEnumerable<Action> actions)
         {
             if (actions == null)
                 return;
 
             foreach (var action in actions)
             {
-                IsOnTrigger = true;
+                AccessOldValue = true;
                 action?.Invoke();
-                IsOnTrigger = false;
+                AccessOldValue = false;
+            }
+        }
+
+        private void InvokeUpdateTriggers(IEnumerable<Action> actions)
+        {
+            if (actions == null)
+                return;
+
+            foreach (var action in actions)
+            {
+                AccessOldValue = true;
+                AccessNewValue = true;
+
+                action?.Invoke();
+
+                AccessNewValue = false;
+                AccessOldValue = false;
             }
         }
 
@@ -183,10 +200,11 @@ namespace DataKeeper
                     return;
                 }
 
-                info.TriggersBeforeRemove?.InvokeAll();
+                OldValue = info.Value;
+                InvokeRemoveTriggers(info.TriggersBeforeRemove);
                 info.Value = null;
                 removedKeys.Add(key);
-                info.TriggersAfterRemove?.InvokeAll();
+                InvokeRemoveTriggers(info.TriggersAfterRemove);
             }
         }
 
@@ -209,17 +227,18 @@ namespace DataKeeper
 
         #region OldValue/NewValue
 
-        private bool IsOnTrigger { get; set; } = false;
+        private bool AccessOldValue { get; set; } = false;
+        private bool AccessNewValue { get; set; } = false;
 
         private dynamic _oldValue;
         public dynamic OldValue
         {
             get
             {
-                if (IsOnTrigger)
+                if (AccessOldValue)
                     return _oldValue;
 
-                throw new NotOnTriggerException($"Trying to get {nameof(OldValue)} not on a trigger body!");
+                throw new NotOnTriggerException($"Trying to get {nameof(OldValue)} not in a trigger body!");
             }
             private set { _oldValue = value; }
         }
@@ -229,10 +248,10 @@ namespace DataKeeper
         {
             get
             {
-                if (IsOnTrigger)
+                if (AccessNewValue)
                     return _newValue;
 
-                throw new NotOnTriggerException($"Trying to get {nameof(NewValue)} not on a trigger body!");
+                throw new NotOnTriggerException($"Trying to get {nameof(NewValue)} either not in a trigger body or in a remove binder!");
             }
             private set { _newValue = value; }
         }
