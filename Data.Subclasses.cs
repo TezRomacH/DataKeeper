@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DataKeeper
 {
@@ -22,30 +23,52 @@ namespace DataKeeper
         private class DataInfo
         {
             public dynamic Value { get; set; }
-            public ICollection<Action> TriggersBeforeChange { get; private set; }
-            public ICollection<Action> TriggersAfterChange { get; private set; }
+            public ICollection<Action> TriggersBeforeUpdate { get; private set; }
+            public ICollection<Action> TriggersAfterUpdate { get; private set; }
 
             public ICollection<Action> TriggersBeforeRemove { get; private set; }
             public ICollection<Action> TriggersAfterRemove { get; private set; }
 
+            public ICollection<Constraint> Constraints { get; }
+
+            public DataInfo()
+            {
+                Constraints = new LinkedList<Constraint>();
+            }
+
+            public void AddConstraint(Constraint constraint)
+            {
+                if (Constraints.FirstOrDefault(c => c.Id == constraint.Id) != null)
+                    throw new ConstraintException(constraint.Id,
+                        $"Constraint with the same id \"{constraint.Id}\" exists!");
+                Constraints.Add(constraint);
+            }
+
+            public void UpdateConstraint(Constraint constraint, ConstraintProperties properties)
+            {
+                var toUpdate = Constraints.FirstOrDefault(c => c.Id == constraint.Id);
+                if (toUpdate != null)
+                    toUpdate.Properties = properties;
+            }
+
             public void AddBindTriggers(Action action, BindType bindType, TriggerType type)
             {
-                if (bindType.BindTypeHasFlag(BindType.OnChange))
+                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
                 {
                     if (type.TriggerHasFlag(TriggerType.Before))
                     {
-                        if (TriggersBeforeChange == null)
-                            TriggersBeforeChange = new List<Action>();
+                        if (TriggersBeforeUpdate == null)
+                            TriggersBeforeUpdate = new List<Action>();
 
-                        TriggersBeforeChange.Add(action);
+                        TriggersBeforeUpdate.Add(action);
                     }
 
                     if (type.TriggerHasFlag(TriggerType.After))
                     {
-                        if (TriggersAfterChange == null)
-                            TriggersAfterChange = new List<Action>();
+                        if (TriggersAfterUpdate == null)
+                            TriggersAfterUpdate = new List<Action>();
 
-                        TriggersAfterChange.Add(action);
+                        TriggersAfterUpdate.Add(action);
                     }
                 }
 
@@ -71,13 +94,13 @@ namespace DataKeeper
 
             public void RemoveBindTriggers(BindType bindType, TriggerType type)
             {
-                if (bindType.BindTypeHasFlag(BindType.OnChange))
+                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
                 {
                     if (type.TriggerHasFlag(TriggerType.Before))
-                        TriggersBeforeChange = null;
+                        TriggersBeforeUpdate = null;
 
                     if (type.TriggerHasFlag(TriggerType.After))
-                        TriggersAfterChange = null;
+                        TriggersAfterUpdate = null;
                 }
 
                 if (bindType.BindTypeHasFlag(BindType.OnRemove))
@@ -93,13 +116,13 @@ namespace DataKeeper
             public bool HasAnyTrigger(BindType bindType = BindType.OnAll, TriggerType type = TriggerType.Both)
             {
                 bool result = false;
-                if (bindType.BindTypeHasFlag(BindType.OnChange))
+                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
                 {
                     if (type.TriggerHasFlag(TriggerType.Before))
-                        result |= TriggersBeforeChange != null;
+                        result |= TriggersBeforeUpdate != null;
 
                     if (type.TriggerHasFlag(TriggerType.After))
-                        result |= TriggersAfterChange != null;
+                        result |= TriggersAfterUpdate != null;
                 }
 
                 if (bindType.BindTypeHasFlag(BindType.OnRemove))

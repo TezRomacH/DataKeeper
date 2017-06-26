@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace DataKeeper
 {
@@ -16,9 +15,15 @@ namespace DataKeeper
     [Flags]
     public enum BindType
     {
-        OnChange = 1,
+        OnUpdate = 1,
         OnRemove = 2,
-        OnAll = OnChange | OnRemove
+        OnAll = OnUpdate | OnRemove
+    }
+
+    public enum ActivityStatus
+    {
+        Inactive,
+        Active
     }
 
     #endregion
@@ -36,25 +41,14 @@ namespace DataKeeper
             return (bindType & flag) == flag;
         }
 
-        public static void InvokeAll(this IEnumerable<Action> actions)
+        internal static dynamic __Add<T>(this object left, T right)
         {
-            if (actions == null)
-                return;
-
-            foreach (var action in actions)
-            {
-                action?.Invoke();
-            }
+            return (dynamic)left + (dynamic)right;
         }
 
-        internal static dynamic Add<T>(this object left, T right)
+        internal static dynamic __Substract<T>(this object left, T right)
         {
-            return (dynamic) left + (dynamic) right;
-        }
-
-        internal static dynamic Substract<T>(this object left, T right)
-        {
-            return (dynamic) left - (dynamic) right;
+            return (dynamic)left - (dynamic)right;
         }
     }
 }

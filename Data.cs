@@ -1,10 +1,11 @@
-﻿// DataKeeper v1.7
-// created by TezRomacH
+﻿// DataKeeper: version 1.8
+// Created by TezRomacH (https://github.com/TezRomacH)
 // https://github.com/TezRomacH/DataKeeper
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace DataKeeper
 {
@@ -40,15 +41,15 @@ namespace DataKeeper
             }
         }
 
-        #region binding methods
+        #region BINDINGS
 
         /// <summary>
         /// Связывает выполнение действия action до или после изменения значения данных ко ключу key
         /// в зависимости от значения triggerType
         /// </summary>
-        public void BindChangeField(string key, Action action, TriggerType triggerType = TriggerType.After)
+        public void BindUpdateField(string key, Action action, TriggerType triggerType = TriggerType.After)
         {
-            BindField(key, action, BindType.OnChange, triggerType);
+            BindField(key, action, BindType.OnUpdate, triggerType);
         }
 
         /// <summary>
@@ -58,15 +59,6 @@ namespace DataKeeper
         public void BindRemoveField(string key, Action action, TriggerType triggerType = TriggerType.Before)
         {
             BindField(key, action, BindType.OnRemove, triggerType);
-        }
-
-        /// <summary>
-        /// Позволяет связать ключ key с некоторым действием <see cref="Action"/>.
-        /// Смотрите также <seealso cref="BindChangeField"/> и <seealso cref="BindRemoveField"/>
-        /// </summary>
-        public Action this[string key, BindType bindType, TriggerType triggerType]
-        {
-            set { BindField(key, value, bindType, triggerType); }
         }
 
         private void BindField(string key, Action action, BindType bindType, TriggerType triggerType)
@@ -95,6 +87,7 @@ namespace DataKeeper
         {
             Unbind(key, BindType.OnAll, TriggerType.Both);
         }
+
         /// <summary>
         /// Удаляет все связанные действия по ключу key
         /// </summary>
@@ -125,36 +118,6 @@ namespace DataKeeper
             }
         }
 
-        #endregion
-
-        #region memory methods
-
-        /// <summary>
-        /// Записывает или изменяет значение по ключу key на value
-        /// </summary>
-        /// <param name="key">Ключ</param>
-        /// <param name="value">Объект, которые записывается или изменяется</param>
-        public void Set(string key, object value)
-        {
-            if (key == null) return;
-
-            DataInfo info = null;
-            if (data.TryGetValue(key, out info))
-            {
-                OldValue = info.Value;
-                NewValue = value;
-
-                InvokeUpdateTriggers(info.TriggersBeforeChange);
-                info.Value = value;
-                removedKeys.Remove(key); // удаляем из удаленных ключей
-                InvokeUpdateTriggers(info.TriggersAfterChange);
-                return;
-            }
-
-            info = new DataInfo { Value = value };
-            data[key] = info;
-        }
-
         private void InvokeRemoveTriggers(IEnumerable<Action> actions)
         {
             if (actions == null)
@@ -162,9 +125,20 @@ namespace DataKeeper
 
             foreach (var action in actions)
             {
-                AccessOldValue = true;
-                action?.Invoke();
-                AccessOldValue = false;
+                try
+                {
+                    AccessOldValue = true;
+                    action?.Invoke();
+                }
+                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                {
+                    // TODO: binder ID
+                    throw new DataKeeperTypeMismatch("Type mismatch on binder \"{}\"");
+                }
+                finally
+                {
+                    AccessOldValue = false;
+                }
             }
         }
 
@@ -175,14 +149,114 @@ namespace DataKeeper
 
             foreach (var action in actions)
             {
-                AccessOldValue = true;
-                AccessNewValue = true;
-
-                action?.Invoke();
-
-                AccessNewValue = false;
-                AccessOldValue = false;
+                try
+                {
+                    AccessBothValues = true;
+                    action?.Invoke();
+                }
+                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                {
+                    // TODO: binder ID
+                    throw new DataKeeperTypeMismatch("Type mismatch on binder \"{}\"");
+                }
+                finally
+                {
+                    AccessBothValues = false;
+                }
             }
+        }
+
+        #endregion
+
+        #region CONSTRAINTS
+
+        public void BindConstraints(string key, Constraint constraint)
+        {
+            if (key == null)
+                return;
+
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+            {
+                info.AddConstraint(constraint);
+                return;
+            }
+
+            info = new DataInfo { Value = null };
+
+            info.AddConstraint(constraint);
+            data[key] = info;
+        }
+
+        #endregion
+
+        #region DATA MANIPULATION
+
+        /// <summary>
+        /// Записывает или изменяет значение по ключу key на value
+        /// </summary>
+        /// <param name="key">Ключ</param>
+        /// <param name="value">Объект, которые записывается или изменяется</param>
+        public void Set(string key, object value)
+        {
+            if (key == null)
+                return;
+
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+            {
+                OldValue = info.Value;
+                NewValue = value;
+
+                if (info.Constraints != null)
+                {
+                    foreach (var constraint in info.Constraints
+                        .Where(c => c.Properties.Status == ActivityStatus.Active))
+                    {
+                        bool validation = true;
+                        try
+                        {
+                            AccessOldValue = true;
+                            validation = constraint.Validate(value);
+                        }
+                        finally
+                        {
+                            AccessOldValue = false;
+                        }
+
+                        if (!validation)
+                        {
+                            throw new ConstraintException(constraint.Id,
+                                constraint.Properties.ErrorMessage ?? $"Error on constarint {constraint.Id}");
+                        }
+                    }
+                }
+
+                InvokeUpdateTriggers(info.TriggersBeforeUpdate);
+                info.Value = value;
+                removedKeys.Remove(key); // удаляем из удаленных ключей
+                InvokeUpdateTriggers(info.TriggersAfterUpdate);
+                return;
+            }
+
+            info = new DataInfo { Value = value };
+            data[key] = info;
+        }
+
+        public bool TrySet(string key, object value, out DataKeeperException ex)
+        {
+            ex = null;
+            try
+            {
+                Set(key, value);
+                return true;
+            }
+            catch (DataKeeperException e)
+            {
+                ex = e;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -219,18 +293,30 @@ namespace DataKeeper
             get { return this.Get(key); }
             set { this.Set(key, value); }
         }
+
         /// <summary>
         /// Позволяет получить данные из модели.
         /// В случае, если данных нет, то вернется второй параметр
         /// </summary>
         public object this[string key, object @default] => Get(key, @default);
 
-        #region OldValue/NewValue
+        #region OLDVALUE & NEWVALUE
 
         private bool AccessOldValue { get; set; } = false;
         private bool AccessNewValue { get; set; } = false;
 
+        private bool AccessBothValues
+        {
+            get { return AccessOldValue && AccessNewValue; }
+            set
+            {
+                AccessOldValue = value;
+                AccessNewValue = value;
+            }
+        }
+
         private dynamic _oldValue;
+
         public dynamic OldValue
         {
             get
@@ -244,6 +330,7 @@ namespace DataKeeper
         }
 
         private dynamic _newValue;
+
         public dynamic NewValue
         {
             get
@@ -251,14 +338,15 @@ namespace DataKeeper
                 if (AccessNewValue)
                     return _newValue;
 
-                throw new NotOnTriggerException($"Trying to get {nameof(NewValue)} either not in a trigger body or in a remove binder!");
+                throw new NotOnTriggerException(
+                    $"Trying to get {nameof(NewValue)} either not in a trigger body or in a remove binder!");
             }
             private set { _newValue = value; }
         }
 
         #endregion
 
-        #region getters
+        #region GETTERS
 
         /// <summary>
         /// Получает объект из данных
@@ -480,30 +568,25 @@ namespace DataKeeper
 
         #endregion
 
-        public bool ValueIs<T>(string key, bool ignoreKeyNotFound = true)
-        {
-            DataInfo info = null;
-            if (data.TryGetValue(key, out info))
-            {
-                return info.Value is T;
-            }
-
-            if (ignoreKeyNotFound)
-                return false;
-
-            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
-        }
-
-        #region increase & decrease
+        #region INCREASE & DECREASE
 
         public void Increase<T>(string key, T valueToIncrease)
         {
             try
             {
+#if LAZY_INCREASE
+                if (!ContainsKey(key))
+                {
+                    Set(key, valueToIncrease);
+                    return;
+                }
+#endif
                 object obj = Get(key);
-                Set(key, obj.Add(valueToIncrease));
+                Set(key, obj.__Add<T>(valueToIncrease));
             }
-            catch { }
+            catch (Exception e) when (!(e is DataKeeperException))
+            {
+            }
         }
 
         public void Decrease<T>(string key, T valueToDecrease)
@@ -511,12 +594,15 @@ namespace DataKeeper
             try
             {
                 object obj = Get(key);
-                Set(key, obj.Substract(valueToDecrease));
+                Set(key, obj.__Substract<T>(valueToDecrease));
             }
-            catch { }
+            catch (Exception e) when (!(e is DataKeeperException))
+            {
+            }
         }
 
         #endregion
+
         /// <summary>
         /// Возвращает количество данных в модели
         /// </summary>
@@ -537,7 +623,9 @@ namespace DataKeeper
         /// </summary>
         public void Clear(string key)
         {
-            if (key == null) return;
+            if (key == null)
+                return;
+
             data.Remove(key);
             removedKeys.Remove(key);
         }
@@ -550,6 +638,20 @@ namespace DataKeeper
         public bool ContainsKey(string key)
         {
             return key != null && !IsKeyRemoved(key) && data.ContainsKey(key);
+        }
+
+        public bool ValueIs<T>(string key, bool ignoreKeyNotFound = true)
+        {
+            DataInfo info = null;
+            if (data.TryGetValue(key, out info))
+            {
+                return info.Value is T;
+            }
+
+            if (ignoreKeyNotFound)
+                return false;
+
+            throw new KeyNotFoundException($"Key \'{key}\' can't be found!");
         }
 
         #endregion
