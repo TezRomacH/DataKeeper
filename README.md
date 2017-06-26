@@ -1,10 +1,11 @@
+ [![Build Status](https://travis-ci.org//TezRomacH/DataKeeper.svg?branch=master)](https://travis-ci.org//TezRomacH/DataKeeper)
 # DataKeeper
 
 DataKeeper is a helpful model for your small C# projects. It will be very convenient if for your work it's enough to save data between threads/forms/windows and use data triggers.
 
   - Use C# actions to bind remove/update triggers
   - You can also choose when a trigger is called: before or after
-  
+
 Work with the model such as a Dictionary where keys are strings!
 
 ### Examples!
