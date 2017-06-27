@@ -188,6 +188,21 @@ namespace DataKeeper
             data[key] = info;
         }
 
+        public void UpdateConstraint(string constraintId, ConstraintProperties properties)
+        {
+            Constraint constraint = FindById(constraintId);
+
+            if (constraint != null)
+            {
+                constraint.Properties = properties;
+            }
+        }
+
+        public void SetConstraintActivity(string constraintId, ActivityStatus status)
+        {
+            FindById(constraintId)?.Properties.SetStatus(status);
+        }
+
         #endregion
 
         #region DATA MANIPULATION
@@ -657,3 +672,4 @@ namespace DataKeeper
         #endregion
     }
 }
+

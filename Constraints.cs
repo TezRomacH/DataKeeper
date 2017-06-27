@@ -158,6 +158,8 @@ namespace DataKeeper
         private Predicate<dynamic> ConstraintPredicate { get; }
         private string idPrefix = null;
 
+        #region CONSTRUCTORS
+
         public Constraint(Predicate<dynamic> constraint)
             : this(Data.Instance.GenerateConstraintId(), constraint) { }
 
@@ -186,11 +188,13 @@ namespace DataKeeper
             Properties = properties;
         }
 
+        #endregion
+
         public bool Validate(object x)
         {
             try
             {
-                bool result = ConstraintPredicate((dynamic)x);
+                bool result = ConstraintPredicate((dynamic) x);
                 return result;
             }
             catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
@@ -216,20 +220,26 @@ namespace DataKeeper
 
     public class ConstraintProperties : ICloneable
     {
-        public ActivityStatus Status { get; }
+        public ActivityStatus Status { get; private set; }
         public string ErrorMessage { get; }
 
-        public ConstraintProperties() : this(ActivityStatus.Active) { }
+        #region CONSTRUCTORS
 
-        public ConstraintProperties(ActivityStatus status) :
-            this(status, null)
-        { }
+        public ConstraintProperties(string errorMessage):
+            this(ActivityStatus.Active, errorMessage) {}
+
+        public ConstraintProperties(): this(ActivityStatus.Active) { }
+
+        public ConstraintProperties(ActivityStatus status):
+            this(status, null) { }
 
         public ConstraintProperties(ActivityStatus status, string errorMessage)
         {
             Status = status;
             ErrorMessage = errorMessage;
         }
+
+        #endregion
 
         public static ConstraintProperties Default
         {
@@ -247,6 +257,11 @@ namespace DataKeeper
         public object Clone()
         {
             return this.Copy();
+        }
+
+        public void SetStatus(ActivityStatus status)
+        {
+            Status = status;
         }
     }
 }

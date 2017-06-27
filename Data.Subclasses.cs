@@ -38,17 +38,10 @@ namespace DataKeeper
 
             public void AddConstraint(Constraint constraint)
             {
-                if (Constraints.FirstOrDefault(c => c.Id == constraint.Id) != null)
+                if(Constraints.FirstOrDefault(c => c.Id == constraint.Id) != null)
                     throw new ConstraintException(constraint.Id,
                         $"Constraint with the same id \"{constraint.Id}\" exists!");
                 Constraints.Add(constraint);
-            }
-
-            public void UpdateConstraint(Constraint constraint, ConstraintProperties properties)
-            {
-                var toUpdate = Constraints.FirstOrDefault(c => c.Id == constraint.Id);
-                if (toUpdate != null)
-                    toUpdate.Properties = properties;
             }
 
             public void AddBindTriggers(Action action, BindType bindType, TriggerType type)
@@ -136,6 +129,20 @@ namespace DataKeeper
 
                 return result;
             }
+        }
+
+        private Constraint FindById(string constraintId)
+        {
+            foreach (var info in data.Values)
+            {
+                foreach (var constraint in info.Constraints)
+                {
+                    if (constraint.Id == constraintId)
+                        return constraint;
+                }
+            }
+
+            return null;
         }
     }
 }
