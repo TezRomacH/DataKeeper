@@ -6,10 +6,25 @@ namespace DataKeeper
     public class Binding : DataKeeperElement, IComparable<Binding>, IComparable
     {
         public BindingProperty Property { get; set; }
-        
+
         private Action BindedAction { get; }
 
         #region CONSTRUCTORS
+
+        public Binding(Action action)
+            : this(Data.Instance.GenerateConstraintId(), action)
+        {
+        }
+
+        public Binding(Action action, BindingProperty property)
+            : this(Data.Instance.GenerateConstraintId(), action, property)
+        {
+        }
+
+        public Binding(string id, Action action)
+            : this(id, action, null)
+        {
+        }
 
         public Binding(string id, Action action, BindingProperty property) : base(id)
         {
@@ -17,16 +32,16 @@ namespace DataKeeper
                 throw new ArgumentNullException(nameof(action),
                     $"Parameter \"{nameof(action)}\" can't be null!");
             BindedAction = action;
-            
+
             if (property == null)
-                property = BindingProperty.Default;
+                property = BindingProperty.DefaultAfterUpdate;
 
             Property = property;
         }
 
         public void Apply()
         {
-            if(Property.Status == ActivityStatus.Active)
+            if (Property.Status == ActivityStatus.Active)
                 BindedAction?.Invoke();
         }
 
@@ -34,7 +49,11 @@ namespace DataKeeper
 
         public Binding Copy()
         {
-            throw new NotImplementedException();
+            Binding result = new Binding(idPrefix,
+                (Action) BindedAction.Clone(),
+                Property.Copy());
+
+            return result;
         }
 
         public override object Clone()
@@ -43,7 +62,7 @@ namespace DataKeeper
         }
 
         #region COMPARERS (IDE GENERATED)
-        
+
         public int CompareTo(Binding other)
         {
             return this.Property.Position - other.Property.Position;
@@ -77,7 +96,7 @@ namespace DataKeeper
         {
             return Comparer<Binding>.Default.Compare(left, right) >= 0;
         }
-        
+
         #endregion
     }
 
@@ -85,24 +104,47 @@ namespace DataKeeper
     {
         public BindType BindType { get; private set; }
         public TriggerType TriggerType { get; private set; }
-        
+
         #region CONSTRUCTORS
-
         
-
-        #endregion
-        
-        public override object Clone()
+        public BindingProperty(BindType bindType, TriggerType triggerType)
+            : base(ActivityStatus.Active)
         {
-            throw new NotImplementedException();
+            this.BindType = bindType;
+            this.TriggerType = triggerType;
         }
 
-        public static BindingProperty Default
+        public BindingProperty(
+            BindType bindType,
+            TriggerType triggerType,
+            ActivityStatus status,
+            int position
+        ) : base(status, position)
         {
-            get
-            {
-                return new BindingProperty();
-            }
+            this.BindType = bindType;
+            this.TriggerType = triggerType;
+        }
+
+        #endregion
+
+        public BindingProperty Copy()
+        {
+            return new BindingProperty(BindType, TriggerType, Status, Position);
+        }
+
+        public override object Clone()
+        {
+            return this.Copy();
+        }
+
+        public static BindingProperty DefaultAfterUpdate
+        {
+            get { return new BindingProperty(BindType.OnUpdate, TriggerType.After); }
+        }
+
+        public static BindingProperty DefaultBeforeRemove
+        {
+            get { return new BindingProperty(BindType.OnRemove, TriggerType.Before); }
         }
     }
 }

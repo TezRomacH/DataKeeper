@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using ConstraintCounter = System.Collections.Generic.Dictionary<string, int>;
+using IdCounter = System.Collections.Generic.Dictionary<string, int>;
 
 namespace DataKeeper
 {
     public sealed partial class Data
     {
-        private ConstraintCounter counter = new ConstraintCounter();
+        private IdCounter counter = new IdCounter();
 
         internal string GenerateConstraintId()
         {
@@ -269,8 +269,8 @@ namespace DataKeeper
             this(status, null) { }
 
         public ConstraintProperty(ActivityStatus status, string errorMessage)
+            : base(status)
         {
-            Status = status;
             ErrorMessage = errorMessage;
         }
 
@@ -292,11 +292,6 @@ namespace DataKeeper
         public override object Clone()
         {
             return this.Copy();
-        }
-
-        public void SetStatus(ActivityStatus status)
-        {
-            Status = status;
         }
     }
 }

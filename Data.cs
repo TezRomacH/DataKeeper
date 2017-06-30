@@ -200,7 +200,7 @@ namespace DataKeeper
 
         public void SetConstraintActivity(string constraintId, ActivityStatus status)
         {
-            FindById(constraintId)?.Property.SetStatus(status);
+            FindById(constraintId)?.Property.SetActivityStatus(status);
         }
 
         #endregion

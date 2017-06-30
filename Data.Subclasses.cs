@@ -166,19 +166,27 @@ namespace DataKeeper
     
     public abstract class DataKeeperPropertyElement : ICloneable
     {
-        public ActivityStatus Status { get; protected set; }
+        public DataKeeperPropertyElement(ActivityStatus status)
+        {
+            Status = status;
+            Position = DefaultPosition;
+        }
+
+        public DataKeeperPropertyElement(ActivityStatus status, int position)
+        {
+            Status = status;
+            Position = position;
+        }
+
+        public ActivityStatus Status { get; private set; }
 
         private int _position = DefaultPosition;
         public int Position
         {
             get { return _position; }
-            protected set { _position = NormilizePosition(value); }
+            private set { _position = NormilizePosition(value); }
         }
 
-        protected const int LowestPosition = 0;
-        protected const int LargestPosition = 20;
-        protected const int DefaultPosition = 10;
-        
         public abstract object Clone();
 
         private static int NormilizePosition(int value)
@@ -190,6 +198,20 @@ namespace DataKeeper
                 return LargestPosition;
 
             return value;
+        }
+
+        private const int LowestPosition = 0;
+        private const int LargestPosition = 20;
+        private const int DefaultPosition = 10;
+
+        public void SetPosition(int newPosition)
+        {
+            Position = newPosition;
+        }
+
+        public void SetActivityStatus(ActivityStatus newStatus)
+        {
+            Status = newStatus;
         }
     }
 }
