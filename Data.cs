@@ -188,19 +188,19 @@ namespace DataKeeper
             data[key] = info;
         }
 
-        public void UpdateConstraint(string constraintId, ConstraintProperties properties)
+        public void UpdateConstraint(string constraintId, ConstraintProperty property)
         {
             Constraint constraint = FindById(constraintId);
 
             if (constraint != null)
             {
-                constraint.Properties = properties;
+                constraint.Property = property;
             }
         }
 
         public void SetConstraintActivity(string constraintId, ActivityStatus status)
         {
-            FindById(constraintId)?.Properties.SetStatus(status);
+            FindById(constraintId)?.Property.SetStatus(status);
         }
 
         #endregion
@@ -225,8 +225,7 @@ namespace DataKeeper
 
                 if (info.Constraints != null)
                 {
-                    foreach (var constraint in info.Constraints
-                        .Where(c => c.Properties.Status == ActivityStatus.Active))
+                    foreach (var constraint in info.Constraints)
                     {
                         bool validation = true;
                         try
@@ -242,7 +241,7 @@ namespace DataKeeper
                         if (!validation)
                         {
                             throw new ConstraintException(constraint.Id,
-                                constraint.Properties.ErrorMessage ?? $"Error on constarint {constraint.Id}");
+                                constraint.Property.ErrorMessage ?? Constraint.ErrorString(constraint.Id));
                         }
                     }
                 }

@@ -145,4 +145,51 @@ namespace DataKeeper
             return null;
         }
     }
+
+    public abstract class DataKeeperElement : ICloneable
+    {
+        public string Id { get; }
+        public abstract object Clone();
+        
+        protected string idPrefix { get; }
+
+        public DataKeeperElement(string id)
+        {
+            if (id == null)
+                throw new ArgumentNullException(nameof(id), "Parameter \"id\" can't be null!");
+            
+            this.idPrefix = id;
+            Id = Data.Instance.ReturnId(id);
+        }
+
+    }
+    
+    public abstract class DataKeeperPropertyElement : ICloneable
+    {
+        public ActivityStatus Status { get; protected set; }
+
+        private int _position = DefaultPosition;
+        public int Position
+        {
+            get { return _position; }
+            protected set { _position = NormilizePosition(value); }
+        }
+
+        protected const int LowestPosition = 0;
+        protected const int LargestPosition = 20;
+        protected const int DefaultPosition = 10;
+        
+        public abstract object Clone();
+
+        private static int NormilizePosition(int value)
+        {
+            if (value < LowestPosition)
+                return LowestPosition;
+
+            if (value > LargestPosition)
+                return LargestPosition;
+
+            return value;
+        }
+    }
 }

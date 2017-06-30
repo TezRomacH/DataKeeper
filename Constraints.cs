@@ -1,5 +1,5 @@
 ﻿using System;
-
+using System.Collections.Generic;
 using ConstraintCounter = System.Collections.Generic.Dictionary<string, int>;
 
 namespace DataKeeper
@@ -150,48 +150,44 @@ namespace DataKeeper
         }
     }
 
-    public class Constraint : ICloneable
+    public class Constraint : DataKeeperElement, IComparable<Constraint>, IComparable
     {
-        public string Id { get; }
-        public ConstraintProperties Properties { get; set; }
+        public ConstraintProperty Property { get; set; }
 
         private Predicate<dynamic> ConstraintPredicate { get; }
-        private string idPrefix = null;
 
         #region CONSTRUCTORS
 
         public Constraint(Predicate<dynamic> constraint)
             : this(Data.Instance.GenerateConstraintId(), constraint) { }
 
-        public Constraint(Predicate<dynamic> constraint, ConstraintProperties properties)
-            : this(Data.Instance.GenerateConstraintId(), constraint, properties) { }
+        public Constraint(Predicate<dynamic> constraint, ConstraintProperty property)
+            : this(Data.Instance.GenerateConstraintId(), constraint, property) { }
 
         public Constraint(string id, Predicate<dynamic> constraint)
             : this(id, constraint, null) { }
 
         public Constraint(string id, Predicate<dynamic> constraint,
-            ConstraintProperties properties)
+            ConstraintProperty property): base(id)
         {
-            if (id == null)
-                throw new ArgumentNullException(nameof(id), "Parameter \"id\" can't be null!");
-
             if (constraint == null)
-                throw new ArgumentNullException(nameof(constraint), "Parameter \"constraint\" can't be null!");
-
-            idPrefix = id;
-            Id = Data.Instance.ReturnId(idPrefix);
+                throw new ArgumentNullException(nameof(constraint),
+                    $"Parameter \"{nameof(constraint)}\" can't be null!");
 
             ConstraintPredicate = constraint;
-            if (properties == null)
-                properties = ConstraintProperties.Default;
+            if (property == null)
+                property = ConstraintProperty.Default;
 
-            Properties = properties;
+            Property = property;
         }
 
         #endregion
 
         public bool Validate(object x)
         {
+            if (Property.Status != ActivityStatus.Active)
+                return true;
+            
             try
             {
                 bool result = ConstraintPredicate((dynamic) x);
@@ -207,33 +203,72 @@ namespace DataKeeper
         {
             Constraint result = new Constraint(idPrefix,
                 (Predicate<dynamic>)ConstraintPredicate.Clone(),
-                Properties.Copy());
+                Property.Copy());
 
             return result;
         }
 
-        public object Clone()
+        public override object Clone()
         {
             return this.Copy();
         }
+
+        public static string ErrorString(string id) => $"Error on constarint {id}";
+        
+        #region COMPARERS (IDE GENERATED)
+
+        public int CompareTo(Constraint other)
+        {
+            return this.Property.Position - other.Property.Position;
+        }
+
+        public int CompareTo(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return 1;
+            if (ReferenceEquals(this, obj)) return 0;
+            if (!(obj is Constraint))
+                throw new ArgumentException($"Object must be of type {nameof(Constraint)}");
+            return CompareTo((Constraint) obj);
+        }
+
+        public static bool operator <(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) < 0;
+        }
+
+        public static bool operator >(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) > 0;
+        }
+
+        public static bool operator <=(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) <= 0;
+        }
+
+        public static bool operator >=(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) >= 0;
+        }
+        
+        #endregion
     }
 
-    public class ConstraintProperties : ICloneable
+    public class ConstraintProperty : DataKeeperPropertyElement
     {
-        public ActivityStatus Status { get; private set; }
         public string ErrorMessage { get; }
 
         #region CONSTRUCTORS
 
-        public ConstraintProperties(string errorMessage):
+        public ConstraintProperty(string errorMessage):
             this(ActivityStatus.Active, errorMessage) {}
 
-        public ConstraintProperties(): this(ActivityStatus.Active) { }
+        public ConstraintProperty(): this(ActivityStatus.Active) { }
 
-        public ConstraintProperties(ActivityStatus status):
+        public ConstraintProperty(ActivityStatus status):
             this(status, null) { }
 
-        public ConstraintProperties(ActivityStatus status, string errorMessage)
+        public ConstraintProperty(ActivityStatus status, string errorMessage)
         {
             Status = status;
             ErrorMessage = errorMessage;
@@ -241,20 +276,20 @@ namespace DataKeeper
 
         #endregion
 
-        public static ConstraintProperties Default
+        public static ConstraintProperty Default
         {
             get
             {
-                return new ConstraintProperties();
+                return new ConstraintProperty();
             }
         }
 
-        public ConstraintProperties Copy()
+        public ConstraintProperty Copy()
         {
-            return new ConstraintProperties(Status, (string)ErrorMessage?.Clone());
+            return new ConstraintProperty(Status, (string)ErrorMessage?.Clone());
         }
 
-        public object Clone()
+        public override object Clone()
         {
             return this.Copy();
         }
