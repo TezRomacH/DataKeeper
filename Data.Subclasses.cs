@@ -159,26 +159,26 @@ namespace DataKeeper
                 throw new ArgumentNullException(nameof(id), "Parameter \"id\" can't be null!");
             
             this.idPrefix = id;
-            Id = Data.Instance.ReturnId(id);
+            Id = Ids.Container.ReturnId(id);
         }
 
     }
     
     public abstract class DataKeeperPropertyElement : ICloneable
     {
-        public DataKeeperPropertyElement(ActivityStatus status)
+        public DataKeeperPropertyElement(ActivityStatus activityStatus)
         {
-            Status = status;
+            ActivityStatus = activityStatus;
             Position = DefaultPosition;
         }
 
-        public DataKeeperPropertyElement(ActivityStatus status, int position)
+        public DataKeeperPropertyElement(ActivityStatus activityStatus, int position)
         {
-            Status = status;
+            ActivityStatus = activityStatus;
             Position = position;
         }
 
-        public ActivityStatus Status { get; private set; }
+        public ActivityStatus ActivityStatus { get; private set; }
 
         private int _position = DefaultPosition;
         public int Position
@@ -211,7 +211,7 @@ namespace DataKeeper
 
         public void SetActivityStatus(ActivityStatus newStatus)
         {
-            Status = newStatus;
+            ActivityStatus = newStatus;
         }
     }
 }

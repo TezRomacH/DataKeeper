@@ -12,19 +12,13 @@ namespace DataKeeper
         #region CONSTRUCTORS
 
         public Binding(Action action)
-            : this(Data.Instance.GenerateConstraintId(), action)
-        {
-        }
+            : this(Ids.Container.GenerateConstraintId(), action) { }
 
         public Binding(Action action, BindingProperty property)
-            : this(Data.Instance.GenerateConstraintId(), action, property)
-        {
-        }
+            : this(Ids.Container.GenerateConstraintId(), action, property) { }
 
         public Binding(string id, Action action)
-            : this(id, action, null)
-        {
-        }
+            : this(id, action, null) { }
 
         public Binding(string id, Action action, BindingProperty property) : base(id)
         {
@@ -41,7 +35,7 @@ namespace DataKeeper
 
         public void Apply()
         {
-            if (Property.Status == ActivityStatus.Active)
+            if (Property.ActivityStatus == ActivityStatus.Active)
                 BindedAction?.Invoke();
         }
 
@@ -117,9 +111,9 @@ namespace DataKeeper
         public BindingProperty(
             BindType bindType,
             TriggerType triggerType,
-            ActivityStatus status,
+            ActivityStatus activityStatus,
             int position
-        ) : base(status, position)
+        ) : base(activityStatus, position)
         {
             this.BindType = bindType;
             this.TriggerType = triggerType;
@@ -129,7 +123,7 @@ namespace DataKeeper
 
         public BindingProperty Copy()
         {
-            return new BindingProperty(BindType, TriggerType, Status, Position);
+            return new BindingProperty(BindType, TriggerType, ActivityStatus, Position);
         }
 
         public override object Clone()

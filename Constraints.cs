@@ -1,43 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using IdCounter = System.Collections.Generic.Dictionary<string, int>;
 
 namespace DataKeeper
 {
     public sealed partial class Data
     {
-        private IdCounter counter = new IdCounter();
-
-        internal string GenerateConstraintId()
-        {
-            return GenerateId("constraint");
-        }
-
-        // используется для генерации id: prefix_number
-        internal string GenerateId(string prefix)
-        {
-            int count = 0;
-
-            counter.TryGetValue(prefix, out count);
-            counter[prefix] = count + 1;
-            return prefix + "_" + count;
-        }
-
-        internal string ReturnId(string prefix)
-        {
-            int count = 0;
-            bool idExists = counter.TryGetValue(prefix, out count);
-
-            string result = prefix;
-            if (idExists)
-            {
-                result = prefix + "_" + count;
-            }
-            counter[prefix] = count + 1;
-
-            return result;
-        }
-
         public static class Constraints
         {
             public static Constraint NotNull
@@ -45,8 +12,9 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("notnull_constraint"),
-                        x => x != null
+                        Ids.Container.GenerateId("notnull_constraint"),
+                        x => x != null,
+                        new ConstraintProperty(ActivityStatus.Active, null, 0)
                     );
                 }
             }
@@ -56,7 +24,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("changeonly_constraint"),
+                        Ids.Container.GenerateId("changeonly_constraint"),
                         x => x != Instance.OldValue
                     );
                 }
@@ -67,8 +35,9 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("never_constraint"),
-                        x => false
+                        Ids.Container.GenerateId("never_constraint"),
+                        x => false,
+                        new ConstraintProperty(ActivityStatus.Active, null, 0)
                     );
                 }
             }
@@ -76,8 +45,9 @@ namespace DataKeeper
             public static Constraint TypeOf<T>()
             {
                 return new Constraint(
-                    Instance.GenerateId($"typeof_{typeof(T)}_constraint"),
-                    x => x is T
+                    Ids.Container.GenerateId($"typeof_{typeof(T)}_constraint"),
+                    x => x is T,
+                    new ConstraintProperty(ActivityStatus.Active, null, 5)
                 );
             }
 
@@ -86,7 +56,7 @@ namespace DataKeeper
             public static Constraint GreaterThan(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("gt_constraint"),
+                    Ids.Container.GenerateId("gt_constraint"),
                     x => x > (dynamic)obj
                 );
             }
@@ -94,7 +64,7 @@ namespace DataKeeper
             public static Constraint GreaterThanOrEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("gte_constraint"),
+                    Ids.Container.GenerateId("gte_constraint"),
                     x => x >= (dynamic)obj
                 );
             }
@@ -102,7 +72,7 @@ namespace DataKeeper
             public static Constraint LessThan(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("lt_constraint"),
+                    Ids.Container.GenerateId("lt_constraint"),
                     x => x < (dynamic)obj
                 );
             }
@@ -110,7 +80,7 @@ namespace DataKeeper
             public static Constraint LessThanOrEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("lte_constraint"),
+                    Ids.Container.GenerateId("lte_constraint"),
                     x => x <= (dynamic)obj
                 );
             }
@@ -118,7 +88,7 @@ namespace DataKeeper
             public static Constraint NotEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("ne_constraint"),
+                    Ids.Container.GenerateId("ne_constraint"),
                     x => x != (dynamic)obj
                 );
             }
@@ -128,7 +98,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("asc_constraint"),
+                        Ids.Container.GenerateId("asc_constraint"),
                         x => (Instance.OldValue == null && x != null) || x >= Instance.OldValue
                     );
                 }
@@ -139,7 +109,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("desc_constraint"),
+                        Ids.Container.GenerateId("desc_constraint"),
                         x => (Instance.OldValue == null && x != null) || x <= Instance.OldValue
                     );
                 }
@@ -159,10 +129,10 @@ namespace DataKeeper
         #region CONSTRUCTORS
 
         public Constraint(Predicate<dynamic> constraint)
-            : this(Data.Instance.GenerateConstraintId(), constraint) { }
+            : this(Ids.Container.GenerateConstraintId(), constraint) { }
 
         public Constraint(Predicate<dynamic> constraint, ConstraintProperty property)
-            : this(Data.Instance.GenerateConstraintId(), constraint, property) { }
+            : this(Ids.Container.GenerateConstraintId(), constraint, property) { }
 
         public Constraint(string id, Predicate<dynamic> constraint)
             : this(id, constraint, null) { }
@@ -185,7 +155,7 @@ namespace DataKeeper
 
         public bool Validate(object x)
         {
-            if (Property.Status != ActivityStatus.Active)
+            if (Property.ActivityStatus != ActivityStatus.Active)
                 return true;
             
             try
@@ -260,16 +230,22 @@ namespace DataKeeper
 
         #region CONSTRUCTORS
 
+        public ConstraintProperty(): this(ActivityStatus.Active) { }
+
         public ConstraintProperty(string errorMessage):
             this(ActivityStatus.Active, errorMessage) {}
 
-        public ConstraintProperty(): this(ActivityStatus.Active) { }
+        public ConstraintProperty(ActivityStatus activityStatus):
+            this(activityStatus, null) { }
 
-        public ConstraintProperty(ActivityStatus status):
-            this(status, null) { }
+        public ConstraintProperty(ActivityStatus activityStatus, string errorMessage)
+            : base(activityStatus)
+        {
+            ErrorMessage = errorMessage;
+        }
 
-        public ConstraintProperty(ActivityStatus status, string errorMessage)
-            : base(status)
+        public ConstraintProperty(ActivityStatus activityStatus, string errorMessage, int position)
+            : base(activityStatus, position)
         {
             ErrorMessage = errorMessage;
         }
@@ -286,7 +262,7 @@ namespace DataKeeper
 
         public ConstraintProperty Copy()
         {
-            return new ConstraintProperty(Status, (string)ErrorMessage?.Clone());
+            return new ConstraintProperty(ActivityStatus, (string)ErrorMessage?.Clone());
         }
 
         public override object Clone()
