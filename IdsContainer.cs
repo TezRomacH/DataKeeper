@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+using IdCounter = System.Collections.Generic.Dictionary<string, int>;
 
 namespace DataKeeper
 {
     internal class Ids
     {
         private static volatile Ids _instance;
-        private static object syncRoot = new object();
+        private static readonly object syncRoot = new object();
         
         public static Ids Container
         {
@@ -23,7 +23,7 @@ namespace DataKeeper
             }
         }
 
-        private Dictionary<string, int> counter = new Dictionary<string, int>();
+        private readonly IdCounter counter = new IdCounter();
 
         internal string GenerateConstraintId()
         {
