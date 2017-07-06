@@ -30,7 +30,12 @@ namespace DataKeeper
             return GenerateId("constraint");
         }
 
-        // используется для генерации id: prefix_number
+        internal string GenerateTriggerId()
+        {
+            return GenerateId("trigger");
+        }
+
+        // generating id: prefix_number
         internal string GenerateId(string prefix)
         {
             int count = 0;

@@ -49,7 +49,9 @@ namespace DataKeeper
         /// </summary>
         public void BindUpdateField(string key, Action action, TriggerType triggerType = TriggerType.After)
         {
-            BindField(key, action, BindType.OnUpdate, triggerType);
+            var updateTrigger = new Trigger(action,
+                new TriggerProperty(BindType.OnUpdate, triggerType));
+            BindTrigger(key, updateTrigger);
         }
 
         /// <summary>
@@ -58,110 +60,91 @@ namespace DataKeeper
         /// </summary>
         public void BindRemoveField(string key, Action action, TriggerType triggerType = TriggerType.Before)
         {
-            BindField(key, action, BindType.OnRemove, triggerType);
+            var removeTrigger = new Trigger(action,
+                new TriggerProperty(BindType.OnRemove, triggerType));
+            BindTrigger(key, removeTrigger);
         }
 
-        private void BindField(string key, Action action, BindType bindType, TriggerType triggerType)
+        public void BindTrigger(string key, Trigger trigger)
         {
             if (key == null)
                 return;
 
+            if (trigger == null)
+                throw new ArgumentNullException(nameof(trigger),
+                    $"Parameter \"{nameof(trigger)}\" can't be null!");
+
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
-                info.AddBindTriggers(action, bindType, triggerType);
+                info.AddTrigger(trigger);
                 return;
             }
 
-            info = new DataInfo { Value = null };
+            info = new DataInfo(key) { Value = null };
 
-            info.AddBindTriggers(action, bindType, triggerType);
+            info.AddTrigger(trigger);
             data[key] = info;
         }
 
-        /// <summary>
-        /// Удаляет все связанные действия по ключу key
-        /// </summary>
-        /// <param name="key">Ключ связки</param>
-        public void Unbind(string key)
+        public void UpdateTrigger(string triggerId, TriggerProperty property)
         {
-            Unbind(key, BindType.OnAll, TriggerType.Both);
-        }
+            Trigger trigger = FindTriggerById(triggerId);
 
-        /// <summary>
-        /// Удаляет все связанные действия по ключу key
-        /// </summary>
-        /// <param name="key">Ключ связки</param>
-        public void Unbind(string key, BindType bindType)
-        {
-            Unbind(key, bindType, TriggerType.Both);
-        }
-
-        /// <summary>
-        /// Удаляет все связанные действия по ключу key
-        /// </summary>
-        /// <param name="key">Ключ связки</param>
-        public void Unbind(string key, BindType bindType, TriggerType triggerType)
-        {
-            if (key == null)
-                return;
-
-            DataInfo info = null;
-            if (data.TryGetValue(key, out info))
+            if (trigger != null)
             {
-                info.RemoveBindTriggers(bindType, triggerType);
-                if (IsKeyRemoved(key) && !info.HasAnyTrigger())
-                {
-                    data.Remove(key);
-                    removedKeys.Remove(key);
-                }
+                trigger.Property = property;
             }
         }
 
-        private void InvokeRemoveTriggers(IEnumerable<Action> actions)
+        private void InvokeUpdateTriggers(IEnumerable<Trigger> triggers)
         {
-            if (actions == null)
+            if (triggers == null)
                 return;
 
-            foreach (var action in actions)
+            foreach (var trigger in triggers)
             {
                 try
                 {
-                    AccessOldValue = true;
-                    action?.Invoke();
-                }
-                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                {
-                    // TODO: binder ID
-                    throw new DataKeeperTypeMismatch("Type mismatch on binder \"{}\"");
-                }
-                finally
-                {
-                    AccessOldValue = false;
-                }
-            }
-        }
-
-        private void InvokeUpdateTriggers(IEnumerable<Action> actions)
-        {
-            if (actions == null)
-                return;
-
-            foreach (var action in actions)
-            {
-                try
-                {
+                    AccessCurrentKey = true;
                     AccessBothValues = true;
-                    action?.Invoke();
+                    trigger?.Apply();
                 }
-                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException ex)
                 {
-                    // TODO: binder ID
-                    throw new DataKeeperTypeMismatch("Type mismatch on binder \"{}\"");
+                    throw new DataKeeperTypeMismatch(
+                        $"Type mismatch on trigger \"{trigger.Id}\"", ex);
                 }
                 finally
                 {
+                    AccessCurrentKey = false;
                     AccessBothValues = false;
+                }
+            }
+        }
+
+        private void InvokeRemoveTriggers(IEnumerable<Trigger> triggers)
+        {
+            if (triggers == null)
+                return;
+
+            foreach (var trigger in triggers)
+            {
+                try
+                {
+                    AccessCurrentKey = true;
+                    AccessOldValue = true;
+                    trigger?.Apply();
+                }
+                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException ex)
+                {
+                    throw new DataKeeperTypeMismatch(
+                        $"Type mismatch on trigger \"{trigger.Id}\"", ex);
+                }
+                finally
+                {
+                    AccessCurrentKey = false;
+                    AccessOldValue = false;
                 }
             }
         }
@@ -175,6 +158,10 @@ namespace DataKeeper
             if (key == null)
                 return;
 
+            if (constraint == null)
+                throw new ArgumentNullException(nameof(constraint),
+                    $"Parameter \"{nameof(constraint)}\" can't be null!");
+
             DataInfo info = null;
             if (data.TryGetValue(key, out info))
             {
@@ -182,7 +169,7 @@ namespace DataKeeper
                 return;
             }
 
-            info = new DataInfo { Value = null };
+            info = new DataInfo(key) { Value = null };
 
             info.AddConstraint(constraint);
             data[key] = info;
@@ -190,7 +177,7 @@ namespace DataKeeper
 
         public void UpdateConstraint(string constraintId, ConstraintProperty property)
         {
-            Constraint constraint = FindById(constraintId);
+            Constraint constraint = FindConstarintById(constraintId);
 
             if (constraint != null)
             {
@@ -198,9 +185,14 @@ namespace DataKeeper
             }
         }
 
-        public void SetConstraintActivity(string constraintId, ActivityStatus status)
+        public void SetElementActivity(string id, ActivityStatus status)
         {
-            FindById(constraintId)?.Property.SetActivityStatus(status);
+            var dataKeeperElement = FindDataKeeperElementById(id);
+            if(dataKeeperElement == null)
+                return;
+
+            (dataKeeperElement as Trigger)?.Property.SetActivityStatus(status);
+            (dataKeeperElement as Constraint)?.Property.SetActivityStatus(status);
         }
 
         #endregion
@@ -222,19 +214,27 @@ namespace DataKeeper
             {
                 OldValue = info.Value;
                 NewValue = value;
+                CurrentKey = key;
 
-                if (info.Constraints != null)
+                if (info.BindedConstraints != null)
                 {
-                    foreach (var constraint in info.Constraints)
+                    foreach (var constraint in info.BindedConstraints)
                     {
                         bool validation = true;
                         try
                         {
+                            AccessCurrentKey = true;
                             AccessOldValue = true;
                             validation = constraint.Validate(value);
                         }
+                        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException ex)
+                        {
+                            throw new DataKeeperTypeMismatch(
+                                $"Type mismatch on constraint \"{constraint.Id}\"", ex);
+                        }
                         finally
                         {
+                            AccessCurrentKey = false;
                             AccessOldValue = false;
                         }
 
@@ -246,14 +246,17 @@ namespace DataKeeper
                     }
                 }
 
-                InvokeUpdateTriggers(info.TriggersBeforeUpdate);
+                var updateTriggers = info.BindedTriggers
+                    .Where(t => t.IsOnUpdate);
+
+                InvokeUpdateTriggers(updateTriggers.Where(t => t.IsBefore));
                 info.Value = value;
                 removedKeys.Remove(key); // удаляем из удаленных ключей
-                InvokeUpdateTriggers(info.TriggersAfterUpdate);
+                InvokeUpdateTriggers(updateTriggers.Where(t => t.IsAfter));
                 return;
             }
 
-            info = new DataInfo { Value = value };
+            info = new DataInfo(key) { Value = value };
             data[key] = info;
         }
 
@@ -288,11 +291,16 @@ namespace DataKeeper
                     return;
                 }
 
+                var removeTriggers = info.BindedTriggers
+                    .Where(t => t.IsOnRemove);
+
                 OldValue = info.Value;
-                InvokeRemoveTriggers(info.TriggersBeforeRemove);
+                CurrentKey = key;
+
+                InvokeRemoveTriggers(removeTriggers.Where(t => t.IsBefore));
                 info.Value = null;
                 removedKeys.Add(key);
-                InvokeRemoveTriggers(info.TriggersAfterRemove);
+                InvokeRemoveTriggers(removeTriggers.Where(t => t.IsAfter));
             }
         }
 
@@ -314,7 +322,24 @@ namespace DataKeeper
         /// </summary>
         public object this[string key, object @default] => Get(key, @default);
 
-        #region OLDVALUE & NEWVALUE
+        #region CURRENTKEY & OLDVALUE & NEWVALUE
+
+        private bool AccessCurrentKey { get; set; } = false;
+
+        private string _currentKey;
+
+        public string CurrentKey
+        {
+            get
+            {
+                if (AccessCurrentKey)
+                    return _currentKey;
+
+                throw new DataKeeperPropertyAccessDeniedException(
+                    $"Trying to get \"{nameof(CurrentKey)}\" not in a trigger or constraint body!");
+            }
+            private set { _currentKey = value; }
+        }
 
         private bool AccessOldValue { get; set; } = false;
         private bool AccessNewValue { get; set; } = false;
@@ -338,7 +363,8 @@ namespace DataKeeper
                 if (AccessOldValue)
                     return _oldValue;
 
-                throw new NotOnTriggerException($"Trying to get {nameof(OldValue)} not in a trigger body!");
+                throw new DataKeeperPropertyAccessDeniedException(
+                    $"Trying to get \"{nameof(OldValue)}\" not in a trigger or constraint body!");
             }
             private set { _oldValue = value; }
         }
@@ -352,8 +378,8 @@ namespace DataKeeper
                 if (AccessNewValue)
                     return _newValue;
 
-                throw new NotOnTriggerException(
-                    $"Trying to get {nameof(NewValue)} either not in a trigger body or in a remove binder!");
+                throw new DataKeeperPropertyAccessDeniedException(
+                    $"Trying to get \"{nameof(NewValue)}\" not in a trigger or constraint body!");
             }
             private set { _newValue = value; }
         }
@@ -588,13 +614,6 @@ namespace DataKeeper
         {
             try
             {
-#if LAZY_INCREASE
-                if (!ContainsKey(key))
-                {
-                    Set(key, valueToIncrease);
-                    return;
-                }
-#endif
                 object obj = Get(key);
                 Set(key, obj.__Add<T>(valueToIncrease));
             }
@@ -671,4 +690,3 @@ namespace DataKeeper
         #endregion
     }
 }
-

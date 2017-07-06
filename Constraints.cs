@@ -189,7 +189,8 @@ namespace DataKeeper
 
         public int CompareTo(Constraint other)
         {
-            return this.Property.Position - other.Property.Position;
+            var result = this.Property.Position - other.Property.Position;
+            return result == 0 ? 1 : result;
         }
 
         public int CompareTo(object obj)
