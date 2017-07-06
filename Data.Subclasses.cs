@@ -22,120 +22,47 @@ namespace DataKeeper
 
         private class DataInfo
         {
+            private string Key { get; }
+
             public dynamic Value { get; set; }
-            public ICollection<Action> TriggersBeforeUpdate { get; private set; }
-            public ICollection<Action> TriggersAfterUpdate { get; private set; }
+            public SortedSet<Trigger> BindedTriggers { get; }
+            public SortedSet<Constraint> BindedConstraints { get; }
 
-            public ICollection<Action> TriggersBeforeRemove { get; private set; }
-            public ICollection<Action> TriggersAfterRemove { get; private set; }
-
-            public ICollection<Constraint> Constraints { get; }
-
-            public DataInfo()
+            public DataInfo(string key)
             {
-                Constraints = new LinkedList<Constraint>();
+                Key = key;
+
+                BindedConstraints = new SortedSet<Constraint>();
+                BindedTriggers = new SortedSet<Trigger>();
             }
 
             public void AddConstraint(Constraint constraint)
             {
-                if(Constraints.FirstOrDefault(c => c.Id == constraint.Id) != null)
-                    throw new ConstraintException(constraint.Id,
-                        $"Constraint with the same id \"{constraint.Id}\" exists!");
-                Constraints.Add(constraint);
+                if(BindedConstraints.FirstOrDefault(c => c.Id == constraint.Id) != null)
+                    throw new SameIdExistsException(constraint.Id,
+                        $"Constraint with the same id \"{constraint.Id}\" already exists  constraints by \"{Key}\" key!");
+                BindedConstraints.Add(constraint);
             }
 
-            public void AddBindTriggers(Action action, BindType bindType, TriggerType type)
+            public void AddTrigger(Trigger trigger)
             {
-                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                    {
-                        if (TriggersBeforeUpdate == null)
-                            TriggersBeforeUpdate = new List<Action>();
-
-                        TriggersBeforeUpdate.Add(action);
-                    }
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                    {
-                        if (TriggersAfterUpdate == null)
-                            TriggersAfterUpdate = new List<Action>();
-
-                        TriggersAfterUpdate.Add(action);
-                    }
-                }
-
-                if (bindType.BindTypeHasFlag(BindType.OnRemove))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                    {
-                        if (TriggersBeforeRemove == null)
-                            TriggersBeforeRemove = new List<Action>();
-
-                        TriggersBeforeRemove.Add(action);
-                    }
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                    {
-                        if (TriggersAfterRemove == null)
-                            TriggersAfterRemove = new List<Action>();
-
-                        TriggersAfterRemove.Add(action);
-                    }
-                }
+                if(BindedTriggers.FirstOrDefault(t => t.Id == trigger.Id) != null)
+                    throw new SameIdExistsException(trigger.Id,
+                        $"Trigger with the same id \"{trigger.Id}\" already exists in triggers by \"{Key}\" key!");
+                BindedTriggers.Add(trigger);
             }
 
-            public void RemoveBindTriggers(BindType bindType, TriggerType type)
+            public bool HasAnyTrigger()
             {
-                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        TriggersBeforeUpdate = null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        TriggersAfterUpdate = null;
-                }
-
-                if (bindType.BindTypeHasFlag(BindType.OnRemove))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        TriggersBeforeRemove = null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        TriggersAfterRemove = null;
-                }
-            }
-
-            public bool HasAnyTrigger(BindType bindType = BindType.OnAll, TriggerType type = TriggerType.Both)
-            {
-                bool result = false;
-                if (bindType.BindTypeHasFlag(BindType.OnUpdate))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        result |= TriggersBeforeUpdate != null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        result |= TriggersAfterUpdate != null;
-                }
-
-                if (bindType.BindTypeHasFlag(BindType.OnRemove))
-                {
-                    if (type.TriggerHasFlag(TriggerType.Before))
-                        result |= TriggersBeforeRemove != null;
-
-                    if (type.TriggerHasFlag(TriggerType.After))
-                        result |= TriggersAfterRemove != null;
-                }
-
-                return result;
+                return BindedTriggers.Count > 0;
             }
         }
 
-        private Constraint FindById(string constraintId)
+        private Constraint FindConstarintById(string constraintId)
         {
             foreach (var info in data.Values)
             {
-                foreach (var constraint in info.Constraints)
+                foreach (var constraint in info.BindedConstraints)
                 {
                     if (constraint.Id == constraintId)
                         return constraint;
@@ -143,6 +70,98 @@ namespace DataKeeper
             }
 
             return null;
+        }
+
+        private Trigger FindTriggerById(string triggerId)
+        {
+            foreach (var info in data.Values)
+            {
+                foreach (var trigger in info.BindedTriggers)
+                {
+                    if (trigger.Id == triggerId)
+                        return trigger;
+                }
+            }
+
+            return null;
+        }
+
+        public DataKeeperElement FindDataKeeperElementById(string id)
+        {
+            return (DataKeeperElement) FindTriggerById(id) ?? FindConstarintById(id);
+        }
+    }
+
+    public abstract class DataKeeperElement : ICloneable
+    {
+        public string Id { get; }
+        public abstract object Clone();
+        
+        protected string idPrefix { get; }
+
+        public DataKeeperElement(string id)
+        {
+            if (id == null)
+                throw new ArgumentNullException(nameof(id), $"Parameter \"{nameof(id)}\" can't be null!");
+            
+            this.idPrefix = id;
+            Id = Ids.Container.ReturnId(id);
+        }
+
+    }
+
+    public abstract class DataKeeperPropertyElement : ICloneable
+    {
+        public ActivityStatus ActivityStatus { get; private set; }
+
+        private int _position = DefaultPosition;
+        public int Position
+        {
+            get { return _position; }
+            private set { _position = NormilizePosition(value); }
+        }
+
+        #region CONSTRUCTORS
+
+        public DataKeeperPropertyElement(ActivityStatus activityStatus)
+        {
+            ActivityStatus = activityStatus;
+            Position = DefaultPosition;
+        }
+
+        public DataKeeperPropertyElement(ActivityStatus activityStatus, int position)
+        {
+            ActivityStatus = activityStatus;
+            Position = position;
+        }
+
+        #endregion
+
+        public abstract object Clone();
+
+        private static int NormilizePosition(int value)
+        {
+            if (value < LowestPosition)
+                return LowestPosition;
+
+            if (value > LargestPosition)
+                return LargestPosition;
+
+            return value;
+        }
+
+        private const int LowestPosition = 0;
+        private const int LargestPosition = 20;
+        private const int DefaultPosition = 10;
+
+        public void SetPosition(int newPosition)
+        {
+            Position = newPosition;
+        }
+
+        public void SetActivityStatus(ActivityStatus newStatus)
+        {
+            ActivityStatus = newStatus;
         }
     }
 }

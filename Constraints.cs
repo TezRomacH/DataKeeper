@@ -1,43 +1,10 @@
 ﻿using System;
-
-using ConstraintCounter = System.Collections.Generic.Dictionary<string, int>;
+using System.Collections.Generic;
 
 namespace DataKeeper
 {
     public sealed partial class Data
     {
-        private ConstraintCounter counter = new ConstraintCounter();
-
-        internal string GenerateConstraintId()
-        {
-            return GenerateId("constraint");
-        }
-
-        // используется для генерации id: prefix_number
-        internal string GenerateId(string prefix)
-        {
-            int count = 0;
-
-            counter.TryGetValue(prefix, out count);
-            counter[prefix] = count + 1;
-            return prefix + "_" + count;
-        }
-
-        internal string ReturnId(string prefix)
-        {
-            int count = 0;
-            bool idExists = counter.TryGetValue(prefix, out count);
-
-            string result = prefix;
-            if (idExists)
-            {
-                result = prefix + "_" + count;
-            }
-            counter[prefix] = count + 1;
-
-            return result;
-        }
-
         public static class Constraints
         {
             public static Constraint NotNull
@@ -45,8 +12,9 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("notnull_constraint"),
-                        x => x != null
+                        Ids.Container.GenerateId("notnull_constraint"),
+                        x => x != null,
+                        new ConstraintProperty(ActivityStatus.Active, null, 0)
                     );
                 }
             }
@@ -56,7 +24,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("changeonly_constraint"),
+                        Ids.Container.GenerateId("changeonly_constraint"),
                         x => x != Instance.OldValue
                     );
                 }
@@ -67,8 +35,9 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("never_constraint"),
-                        x => false
+                        Ids.Container.GenerateId("never_constraint"),
+                        x => false,
+                        new ConstraintProperty(ActivityStatus.Active, null, 0)
                     );
                 }
             }
@@ -76,8 +45,9 @@ namespace DataKeeper
             public static Constraint TypeOf<T>()
             {
                 return new Constraint(
-                    Instance.GenerateId($"typeof_{typeof(T)}_constraint"),
-                    x => x is T
+                    Ids.Container.GenerateId($"typeof_{typeof(T)}_constraint"),
+                    x => x is T,
+                    new ConstraintProperty(ActivityStatus.Active, null, 5)
                 );
             }
 
@@ -86,7 +56,7 @@ namespace DataKeeper
             public static Constraint GreaterThan(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("gt_constraint"),
+                    Ids.Container.GenerateId("gt_constraint"),
                     x => x > (dynamic)obj
                 );
             }
@@ -94,7 +64,7 @@ namespace DataKeeper
             public static Constraint GreaterThanOrEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("gte_constraint"),
+                    Ids.Container.GenerateId("gte_constraint"),
                     x => x >= (dynamic)obj
                 );
             }
@@ -102,7 +72,7 @@ namespace DataKeeper
             public static Constraint LessThan(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("lt_constraint"),
+                    Ids.Container.GenerateId("lt_constraint"),
                     x => x < (dynamic)obj
                 );
             }
@@ -110,7 +80,7 @@ namespace DataKeeper
             public static Constraint LessThanOrEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("lte_constraint"),
+                    Ids.Container.GenerateId("lte_constraint"),
                     x => x <= (dynamic)obj
                 );
             }
@@ -118,7 +88,7 @@ namespace DataKeeper
             public static Constraint NotEqual(object obj)
             {
                 return new Constraint(
-                    Instance.GenerateId("ne_constraint"),
+                    Ids.Container.GenerateId("ne_constraint"),
                     x => x != (dynamic)obj
                 );
             }
@@ -128,7 +98,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("asc_constraint"),
+                        Ids.Container.GenerateId("asc_constraint"),
                         x => (Instance.OldValue == null && x != null) || x >= Instance.OldValue
                     );
                 }
@@ -139,7 +109,7 @@ namespace DataKeeper
                 get
                 {
                     return new Constraint(
-                        Instance.GenerateId("desc_constraint"),
+                        Ids.Container.GenerateId("desc_constraint"),
                         x => (Instance.OldValue == null && x != null) || x <= Instance.OldValue
                     );
                 }
@@ -150,48 +120,44 @@ namespace DataKeeper
         }
     }
 
-    public class Constraint : ICloneable
+    public class Constraint : DataKeeperElement, IComparable<Constraint>, IComparable
     {
-        public string Id { get; }
-        public ConstraintProperties Properties { get; set; }
+        public ConstraintProperty Property { get; set; }
 
         private Predicate<dynamic> ConstraintPredicate { get; }
-        private string idPrefix = null;
 
         #region CONSTRUCTORS
 
         public Constraint(Predicate<dynamic> constraint)
-            : this(Data.Instance.GenerateConstraintId(), constraint) { }
+            : this(Ids.Container.GenerateConstraintId(), constraint) { }
 
-        public Constraint(Predicate<dynamic> constraint, ConstraintProperties properties)
-            : this(Data.Instance.GenerateConstraintId(), constraint, properties) { }
+        public Constraint(Predicate<dynamic> constraint, ConstraintProperty property)
+            : this(Ids.Container.GenerateConstraintId(), constraint, property) { }
 
         public Constraint(string id, Predicate<dynamic> constraint)
             : this(id, constraint, null) { }
 
         public Constraint(string id, Predicate<dynamic> constraint,
-            ConstraintProperties properties)
+            ConstraintProperty property): base(id)
         {
-            if (id == null)
-                throw new ArgumentNullException(nameof(id), "Parameter \"id\" can't be null!");
-
             if (constraint == null)
-                throw new ArgumentNullException(nameof(constraint), "Parameter \"constraint\" can't be null!");
-
-            idPrefix = id;
-            Id = Data.Instance.ReturnId(idPrefix);
+                throw new ArgumentNullException(nameof(constraint),
+                    $"Parameter \"{nameof(constraint)}\" can't be null!");
 
             ConstraintPredicate = constraint;
-            if (properties == null)
-                properties = ConstraintProperties.Default;
+            if (property == null)
+                property = ConstraintProperty.Default;
 
-            Properties = properties;
+            Property = property;
         }
 
         #endregion
 
         public bool Validate(object x)
         {
+            if (Property.ActivityStatus != ActivityStatus.Active)
+                return true;
+            
             try
             {
                 bool result = ConstraintPredicate((dynamic) x);
@@ -207,61 +173,102 @@ namespace DataKeeper
         {
             Constraint result = new Constraint(idPrefix,
                 (Predicate<dynamic>)ConstraintPredicate.Clone(),
-                Properties.Copy());
+                Property.Copy());
 
             return result;
         }
 
-        public object Clone()
+        public override object Clone()
         {
             return this.Copy();
         }
+
+        public static string ErrorString(string id) => $"Error on constarint {id}";
+        
+        #region COMPARERS (IDE GENERATED)
+
+        public int CompareTo(Constraint other)
+        {
+            var result = this.Property.Position - other.Property.Position;
+            return result == 0 ? 1 : result;
+        }
+
+        public int CompareTo(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return 1;
+            if (ReferenceEquals(this, obj)) return 0;
+            if (!(obj is Constraint))
+                throw new ArgumentException($"Object must be of type {nameof(Constraint)}");
+            return CompareTo((Constraint) obj);
+        }
+
+        public static bool operator <(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) < 0;
+        }
+
+        public static bool operator >(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) > 0;
+        }
+
+        public static bool operator <=(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) <= 0;
+        }
+
+        public static bool operator >=(Constraint left, Constraint right)
+        {
+            return Comparer<Constraint>.Default.Compare(left, right) >= 0;
+        }
+        
+        #endregion
     }
 
-    public class ConstraintProperties : ICloneable
+    public class ConstraintProperty : DataKeeperPropertyElement
     {
-        public ActivityStatus Status { get; private set; }
         public string ErrorMessage { get; }
 
         #region CONSTRUCTORS
 
-        public ConstraintProperties(string errorMessage):
+        public ConstraintProperty(): this(ActivityStatus.Active) { }
+
+        public ConstraintProperty(string errorMessage):
             this(ActivityStatus.Active, errorMessage) {}
 
-        public ConstraintProperties(): this(ActivityStatus.Active) { }
+        public ConstraintProperty(ActivityStatus activityStatus):
+            this(activityStatus, null) { }
 
-        public ConstraintProperties(ActivityStatus status):
-            this(status, null) { }
-
-        public ConstraintProperties(ActivityStatus status, string errorMessage)
+        public ConstraintProperty(ActivityStatus activityStatus, string errorMessage)
+            : base(activityStatus)
         {
-            Status = status;
+            ErrorMessage = errorMessage;
+        }
+
+        public ConstraintProperty(ActivityStatus activityStatus, string errorMessage, int position)
+            : base(activityStatus, position)
+        {
             ErrorMessage = errorMessage;
         }
 
         #endregion
 
-        public static ConstraintProperties Default
+        public static ConstraintProperty Default
         {
             get
             {
-                return new ConstraintProperties();
+                return new ConstraintProperty();
             }
         }
 
-        public ConstraintProperties Copy()
+        public ConstraintProperty Copy()
         {
-            return new ConstraintProperties(Status, (string)ErrorMessage?.Clone());
+            return new ConstraintProperty(ActivityStatus, (string)ErrorMessage?.Clone());
         }
 
-        public object Clone()
+        public override object Clone()
         {
             return this.Copy();
-        }
-
-        public void SetStatus(ActivityStatus status)
-        {
-            Status = status;
         }
     }
 }

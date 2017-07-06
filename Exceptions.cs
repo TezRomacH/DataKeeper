@@ -15,16 +15,22 @@ namespace DataKeeper
         {
             ErrorMessage = errorMessage;
         }
+
+        protected DataKeeperException(string errorMessage, Exception innerException)
+            : base(errorMessage, innerException)
+        {
+            ErrorMessage = errorMessage;
+        }
     }
 
     /// <summary>
     /// Exception is thrown if trying to get variables OldValue or NewValue not on a trigger body
     /// </summary>
-    public class NotOnTriggerException : DataKeeperException
+    public class DataKeeperPropertyAccessDeniedException : DataKeeperException
     {
-        public NotOnTriggerException() : base() { }
+        public DataKeeperPropertyAccessDeniedException() : base() { }
 
-        public NotOnTriggerException(string message) : base(message) { }
+        public DataKeeperPropertyAccessDeniedException(string message) : base(message) { }
     }
 
     public class DataKeeperTypeMismatch : DataKeeperException
@@ -32,6 +38,9 @@ namespace DataKeeper
         public DataKeeperTypeMismatch() : base() { }
 
         public DataKeeperTypeMismatch(string message) : base(message) { }
+
+        public DataKeeperTypeMismatch(string message, Exception innerException)
+            : base(message, innerException) { }
     }
 
     /// <summary>
@@ -49,6 +58,21 @@ namespace DataKeeper
         public ConstraintException(string constraintId, string message) : base(message)
         {
             ConstraintId = constraintId;
+        }
+    }
+
+    public class SameIdExistsException : DataKeeperException
+    {
+        public string Id { get; }
+
+        public SameIdExistsException(string id)
+        {
+            Id = id;
+        }
+
+        public SameIdExistsException(string id, string message) : base(message)
+        {
+            Id = id;
         }
     }
 }
