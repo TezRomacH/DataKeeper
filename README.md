@@ -9,8 +9,12 @@ Work with the model such as a Dictionary where keys are strings!
 
 ### Examples!
 ```csharp examples
-Data.Instance.BindChangeField("some_key_to_data", () => Console.WriteLine("value on some_key_to_data is updated"));
-Data.Instance.Set("some_key_to_data", value: 42); // will set new value and print "value on some_key_to_data is updated"
+Data model = Data.Instance;
+model.BindUpdateField(
+  "some_key",
+  () => Console.WriteLine("value on some_key is updated")
+);
+model.Set("some_key", value: 42); // will set new value and print "value on some_key is updated"
 // Set takes an object so you can put any value
 ```
 
